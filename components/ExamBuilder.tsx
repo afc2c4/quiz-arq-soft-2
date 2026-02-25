@@ -2,17 +2,26 @@
 import React, { useState, useMemo } from 'react';
 import { QUIZ_DATABASE } from '../constants';
 import { Topic, Question } from '../types';
+import { shuffleArray } from '../App';
 
 interface ExamBuilderProps {
   isDarkMode: boolean;
   selectedIds: string[];
   onToggleSelection: (id: string) => void;
   onSelectMultiple: (ids: string[]) => void;
+  onClearSelection: () => void;
 }
 
-const ExamBuilder: React.FC<ExamBuilderProps> = ({ isDarkMode, selectedIds, onToggleSelection, onSelectMultiple }) => {
+const ExamBuilder: React.FC<ExamBuilderProps> = ({ 
+  isDarkMode, 
+  selectedIds, 
+  onToggleSelection, 
+  onSelectMultiple,
+  onClearSelection 
+}) => {
   const [filterTopic, setFilterTopic] = useState<Topic | 'Todos'>('Todos');
   const [showPreview, setShowPreview] = useState(false);
+  const [generatedExam, setGeneratedExam] = useState<string>('');
 
   // Extração dinâmica de tópicos para evitar falhas de sincronização
   const dynamicTopics = useMemo(() => {
@@ -32,16 +41,33 @@ const ExamBuilder: React.FC<ExamBuilderProps> = ({ isDarkMode, selectedIds, onTo
     onSelectMultiple(filteredIds);
   };
 
-  const generateExamText = () => {
+  const generateExamContent = () => {
     const selectedQuestions = QUIZ_DATABASE.filter(q => selectedIds.includes(q.id));
-    return selectedQuestions.map((q, index) => {
-      const optionsText = q.options.map((opt, i) => `${String.fromCharCode(65 + i)}) ${opt}`).join('\n');
+    
+    // Embaralhar as questões selecionadas para organização
+    const shuffledQuestions = shuffleArray(selectedQuestions);
+    const answerKey: string[] = [];
+
+    const examBody = shuffledQuestions.map((q, index) => {
+      const originalCorrectOption = q.options[q.correctAnswer];
+      const newOptions = shuffleArray(q.options);
+      const newCorrectIndex = newOptions.indexOf(originalCorrectOption);
+      
+      // Adicionar ao gabarito (Letra correspondente ao novo índice)
+      answerKey.push(`${index + 1}) ${String.fromCharCode(65 + newCorrectIndex)}`);
+      
+      const optionsText = newOptions.map((opt, i) => `${String.fromCharCode(65 + i)}) ${opt}`).join('\n');
       return `${index + 1}. ${q.question}\n${optionsText}\n`;
     }).join('\n');
+
+    const fullExamText = `${examBody}\n\n--- GABARITO ---\n${answerKey.join(' | ')}`;
+
+    setGeneratedExam(fullExamText);
+    setShowPreview(true);
   };
 
   const copyToClipboard = () => {
-    navigator.clipboard.writeText(generateExamText());
+    navigator.clipboard.writeText(generatedExam);
     alert('Conteúdo copiado! Agora você pode colar no seu documento DOCX.');
   };
 
@@ -59,6 +85,13 @@ const ExamBuilder: React.FC<ExamBuilderProps> = ({ isDarkMode, selectedIds, onTo
         
         <div className="flex flex-wrap items-center gap-3">
           <button 
+            onClick={onClearSelection}
+            className={`px-4 py-2 rounded-xl text-sm font-bold border transition-all ${isDarkMode ? 'border-red-900/30 hover:bg-red-900/20 text-red-400' : 'border-red-100 hover:bg-red-50 text-red-600'}`}
+          >
+            <i className="fas fa-trash-alt mr-2"></i>
+            Limpar Seleções
+          </button>
+          <button 
             onClick={selectAllFiltered}
             className={`px-4 py-2 rounded-xl text-sm font-bold border transition-all ${isDarkMode ? 'border-slate-700 hover:bg-slate-800 text-slate-300' : 'border-gray-200 hover:bg-gray-50 text-gray-600'}`}
           >
@@ -69,15 +102,24 @@ const ExamBuilder: React.FC<ExamBuilderProps> = ({ isDarkMode, selectedIds, onTo
             <span>{selectedIds.length} selecionadas</span>
           </div>
           <button 
-            disabled={selectedIds.length === 0}
-            onClick={() => setShowPreview(true)}
+            disabled={selectedIds.length !== 10}
+            onClick={generateExamContent}
             className={`px-6 py-2 rounded-xl font-bold transition-all transform active:scale-95 flex items-center gap-2
-              ${selectedIds.length === 0 ? 'bg-gray-300 cursor-not-allowed text-gray-500' : 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-500/30'}`}
+              ${selectedIds.length !== 10 ? 'bg-gray-300 cursor-not-allowed text-gray-500' : 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-500/30'}`}
           >
-            <i className="fas fa-eye"></i> Gerar Prévia
+            <i className="fas fa-file-alt"></i> Gerar Prova (10)
           </button>
         </div>
       </div>
+
+      {selectedIds.length !== 10 && selectedIds.length > 0 && (
+        <div className={`mb-6 p-4 rounded-2xl border flex items-center gap-3 ${isDarkMode ? 'bg-orange-900/20 border-orange-900/30 text-orange-400' : 'bg-orange-50 border-orange-100 text-orange-700'}`}>
+          <i className="fas fa-exclamation-circle"></i>
+          <span className="text-sm font-medium">
+            Selecione exatamente 10 questões para habilitar o gerador de prova. (Faltam {10 - selectedIds.length > 0 ? 10 - selectedIds.length : selectedIds.length - 10})
+          </span>
+        </div>
+      )}
 
       <div className="flex flex-wrap gap-2 mb-8">
         {dynamicTopics.map(t => (
@@ -152,7 +194,7 @@ const ExamBuilder: React.FC<ExamBuilderProps> = ({ isDarkMode, selectedIds, onTo
             
             <div className="p-6 overflow-y-auto flex-grow bg-slate-50 dark:bg-slate-950/50">
               <pre className={`whitespace-pre-wrap font-mono text-xs md:text-sm leading-relaxed p-6 rounded-2xl border shadow-inner ${isDarkMode ? 'bg-slate-900 border-slate-800 text-slate-300' : 'bg-white border-gray-200 text-gray-700'}`}>
-                {generateExamText() || 'Nenhuma questão selecionada.'}
+                {generatedExam || 'Nenhuma questão selecionada.'}
               </pre>
             </div>
 

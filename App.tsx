@@ -6,7 +6,7 @@ import ExamBuilder from './components/ExamBuilder';
 import { QUIZ_DATABASE } from './constants';
 import { Topic, QuizState, Question } from './types';
 
-const shuffleArray = <T,>(array: T[]): T[] => {
+export const shuffleArray = <T,>(array: T[]): T[] => {
   const shuffled = [...array];
   for (let i = shuffled.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
@@ -113,6 +113,10 @@ const App: React.FC = () => {
       const newIds = ids.filter(id => !prev.includes(id));
       return [...prev, ...newIds];
     });
+  };
+
+  const handleClearSelection = () => {
+    setSelectedForExam([]);
   };
 
   const renderTopicSelection = () => (
@@ -282,6 +286,7 @@ const App: React.FC = () => {
             selectedIds={selectedForExam}
             onToggleSelection={toggleSelectForExam}
             onSelectMultiple={handleSelectMultiple}
+            onClearSelection={handleClearSelection}
           />
         )}
       </main>

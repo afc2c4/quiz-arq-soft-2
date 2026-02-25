@@ -145,6 +145,146 @@ export const QUIZ_DATABASE: Question[] = [
     correctAnswer: 1,
     explanation: 'Repositories permitem que o domínio ignore os detalhes de como os dados são salvos ou recuperados.'
   },
+  {
+    id: 'ddd6',
+    topic: 'DDD',
+    question: 'O que é um "Context Mapping" (Mapeamento de Contexto) no DDD?',
+    options: [
+      'Um diagrama que mostra a topologia física dos servidores de banco de dados.',
+      'Uma ferramenta para visualizar as relações e fluxos de dados entre diferentes Bounded Contexts.',
+      'O processo de mapear classes Java para tabelas SQL usando Hibernate.',
+      'Um mapa térmico que indica quais partes do código são mais acessadas.',
+      'A definição de rotas de navegação em uma aplicação Single Page (SPA).'
+    ],
+    correctAnswer: 1,
+    explanation: 'O Context Mapping ajuda a entender como os diferentes modelos de domínio interagem e se integram.'
+  },
+  {
+    id: 'ddd7',
+    topic: 'DDD',
+    question: 'Qual a função de um "Domain Event" (Evento de Domínio)?',
+    options: [
+      'Capturar um clique do mouse na interface do usuário.',
+      'Notificar outras partes do sistema sobre algo relevante que aconteceu no domínio.',
+      'Agendar tarefas em segundo plano no sistema operacional.',
+      'Registrar o tempo de resposta de uma consulta SQL.',
+      'Validar se um formulário foi preenchido corretamente no frontend.'
+    ],
+    correctAnswer: 1,
+    explanation: 'Eventos de domínio permitem o desacoplamento entre diferentes partes do sistema que precisam reagir a mudanças.'
+  },
+  {
+    id: 'ddd8',
+    topic: 'DDD',
+    question: 'O que caracteriza um "Domain Service" (Serviço de Domínio)?',
+    options: [
+      'Uma operação que não pertence naturalmente a uma Entidade ou Objeto de Valor.',
+      'Um serviço que lida exclusivamente com o envio de e-mails e SMS.',
+      'Uma classe que gerencia a conexão direta com o driver do banco de dados.',
+      'Um componente de interface que renderiza menus dinâmicos.',
+      'Um script de automação para deploy em servidores de homologação.'
+    ],
+    correctAnswer: 0,
+    explanation: 'Serviços de domínio são usados para lógicas que envolvem múltiplos objetos de domínio ou que não têm um "dono" claro.'
+  },
+  {
+    id: 'ddd9',
+    topic: 'DDD',
+    question: 'No DDD, a "Camada de Aplicação" (Application Layer) deve:',
+    options: [
+      'Conter toda a lógica complexa de regras de negócio do domínio.',
+      'Orquestrar as tarefas e delegar o trabalho para os objetos de domínio.',
+      'Definir o layout visual e as cores da aplicação.',
+      'Realizar consultas SQL complexas diretamente no banco de dados.',
+      'Gerenciar o sistema de arquivos e permissões do servidor.'
+    ],
+    correctAnswer: 1,
+    explanation: 'A camada de aplicação é fina e coordena as ações, enquanto a lógica de negócio reside na camada de domínio.'
+  },
+  {
+    id: 'ddd10',
+    topic: 'DDD',
+    question: 'O que é um "Shared Kernel" (Núcleo Compartilhado)?',
+    options: [
+      'Um processador compartilhado entre múltiplos servidores virtuais.',
+      'Uma parte do domínio que é compartilhada entre dois ou mais Bounded Contexts.',
+      'Um banco de dados centralizado que armazena todas as tabelas do sistema.',
+      'Um repositório Git onde todos os desenvolvedores têm permissão de escrita.',
+      'Uma biblioteca de componentes visuais usada por diferentes times.'
+    ],
+    correctAnswer: 1,
+    explanation: 'O Shared Kernel exige coordenação próxima entre os times, pois mudanças afetam todos os contextos que o utilizam.'
+  },
+  {
+    id: 'ddd11',
+    topic: 'DDD',
+    question: 'Qual o propósito de uma "Anti-Corruption Layer" (Camada Anticorrupção)?',
+    options: [
+      'Evitar que hackers invadam o banco de dados da aplicação.',
+      'Impedir que modelos externos ou legados poluam o modelo de domínio interno.',
+      'Garantir que o código siga rigorosamente os padrões de indentação.',
+      'Verificar a integridade física dos arquivos de log do sistema.',
+      'Bloquear o uso de bibliotecas de terceiros que não tenham licença MIT.'
+    ],
+    correctAnswer: 1,
+    explanation: 'Ela atua como um tradutor que isola o domínio interno de mudanças ou complexidades de sistemas externos.'
+  },
+  {
+    id: 'ddd12',
+    topic: 'DDD',
+    question: 'O padrão "Factory" no contexto do DDD é utilizado para:',
+    options: [
+      'Criar instâncias de objetos complexos ou Agregados, garantindo sua validade inicial.',
+      'Gerar relatórios em PDF baseados em templates HTML.',
+      'Automatizar a criação de tabelas no banco de dados durante o startup.',
+      'Produzir logs de auditoria para cada transação realizada pelo usuário.',
+      'Instalar dependências do projeto de forma automática.'
+    ],
+    correctAnswer: 0,
+    explanation: 'Factories encapsulam a lógica de criação, garantindo que o objeto nasça em um estado consistente.'
+  },
+  {
+    id: 'ddd13',
+    topic: 'DDD',
+    question: 'O que define o "Strategic Design" (Design Estratégico) no DDD?',
+    options: [
+      'A escolha das cores e fontes que serão usadas no dashboard.',
+      'A definição de Bounded Contexts, Linguagem Ubíqua e Context Maps.',
+      'A seleção do provedor de nuvem (AWS, Azure ou Google Cloud).',
+      'O planejamento financeiro do projeto de software.',
+      'A definição de quais frameworks JavaScript serão usados no frontend.'
+    ],
+    correctAnswer: 1,
+    explanation: 'O design estratégico foca na organização em larga escala e na integridade do modelo de domínio.'
+  },
+  {
+    id: 'ddd14',
+    topic: 'DDD',
+    question: 'O que caracteriza o "Tactical Design" (Design Tático) no DDD?',
+    options: [
+      'A negociação de prazos com os stakeholders do projeto.',
+      'O uso de padrões como Entidades, VOs, Agregados, Repositórios e Serviços.',
+      'A configuração de firewalls e regras de segurança de rede.',
+      'O treinamento de novos desenvolvedores na cultura da empresa.',
+      'A escrita de manuais de usuário e documentação de ajuda.'
+    ],
+    correctAnswer: 1,
+    explanation: 'O design tático fornece as ferramentas de modelagem para implementar os modelos de domínio dentro de um contexto.'
+  },
+  {
+    id: 'ddd15',
+    topic: 'DDD',
+    question: 'Qual a importância da "Aggregate Root" (Raiz do Agregado)?',
+    options: [
+      'Ela é o único ponto de acesso para objetos fora do Agregado, garantindo consistência.',
+      'Ela define a URL base de todas as APIs do sistema.',
+      'Ela é a classe principal que contém o método "main" da aplicação.',
+      'Ela armazena as configurações de conexão com o banco de dados.',
+      'Ela é responsável por renderizar o componente principal da interface.'
+    ],
+    correctAnswer: 0,
+    explanation: 'A Raiz do Agregado protege a integridade de todos os objetos dentro da fronteira do Agregado.'
+  },
 
   // --- ARQUITETURA MONOLÍTICA (5 Questões) ---
   {
@@ -217,6 +357,146 @@ export const QUIZ_DATABASE: Question[] = [
     correctAnswer: 1,
     explanation: 'A unidade de implantação única é o que define fisicamente o monólito.'
   },
+  {
+    id: 'mono6',
+    topic: 'Arquitetura Monolítica',
+    question: 'Qual o impacto de um bug crítico em um módulo de um sistema Monolítico?',
+    options: [
+      'Apenas o módulo afetado para de funcionar, mantendo o resto do sistema ativo.',
+      'O bug pode derrubar a aplicação inteira, pois todos os módulos compartilham o mesmo processo.',
+      'O sistema isola o bug automaticamente e continua operando normalmente.',
+      'O bug é transferido para o banco de dados e resolvido via trigger.',
+      'O compilador remove o código defeituoso em tempo de execução.'
+    ],
+    correctAnswer: 1,
+    explanation: 'A falta de isolamento de falhas é uma das principais desvantagens de monólitos grandes.'
+  },
+  {
+    id: 'mono7',
+    topic: 'Arquitetura Monolítica',
+    question: 'O que é um "Modular Monolith" (Monólito Modular)?',
+    options: [
+      'Um sistema de microsserviços que foi unido em um único banco de dados.',
+      'Um monólito com separação lógica clara entre módulos, mas implantado como uma unidade.',
+      'Um conjunto de aplicações independentes que não se comunicam.',
+      'Um framework que permite criar plugins para navegadores web.',
+      'Uma técnica de hardware para empilhar servidores em racks.'
+    ],
+    correctAnswer: 1,
+    explanation: 'O monólito modular busca os benefícios de organização dos microsserviços sem a complexidade de rede.'
+  },
+  {
+    id: 'mono8',
+    topic: 'Arquitetura Monolítica',
+    question: 'Por que o tempo de build tende a aumentar em monólitos grandes?',
+    options: [
+      'Porque o compilador precisa processar toda a base de código a cada mudança.',
+      'Porque a internet fica mais lenta conforme o arquivo de código cresce.',
+      'Porque o banco de dados exige uma reindexação total a cada compilação.',
+      'Porque o sistema operacional limita o número de arquivos que podem ser lidos.',
+      'Porque os desenvolvedores escrevem mais comentários em sistemas grandes.'
+    ],
+    correctAnswer: 0,
+    explanation: 'Em grandes monólitos, mesmo uma mudança pequena pode exigir um ciclo completo de build e deploy.'
+  },
+  {
+    id: 'mono9',
+    topic: 'Arquitetura Monolítica',
+    question: 'Qual o desafio de adotar novas tecnologias em um projeto Monolítico existente?',
+    options: [
+      'Não há desafios, pois monólitos aceitam qualquer tecnologia simultaneamente.',
+      'É difícil adotar novas linguagens ou frameworks, pois o sistema está preso à stack inicial.',
+      'O custo de licença de novas tecnologias é maior em sistemas monolíticos.',
+      'As novas tecnologias não funcionam em servidores que rodam monólitos.',
+      'A interface de usuário impede a atualização de bibliotecas de backend.'
+    ],
+    correctAnswer: 1,
+    explanation: 'O "Technology Lock-in" é forte em monólitos; mudar a stack muitas vezes exige reescrever tudo.'
+  },
+  {
+    id: 'mono10',
+    topic: 'Arquitetura Monolítica',
+    question: 'Como a escalabilidade horizontal funciona em um monólito?',
+    options: [
+      'Não é possível escalar horizontalmente, apenas verticalmente (mais CPU/RAM).',
+      'Através da replicação de instâncias completas da aplicação atrás de um Load Balancer.',
+      'Dividindo o código em arquivos menores e espalhando-os por vários servidores.',
+      'Movendo apenas a camada de dados para um cluster de servidores.',
+      'O monólito escala automaticamente usando inteligência artificial.'
+    ],
+    correctAnswer: 1,
+    explanation: 'Você escala o monólito replicando a unidade inteira, o que pode ser ineficiente em termos de recursos.'
+  },
+  {
+    id: 'mono11',
+    topic: 'Arquitetura Monolítica',
+    question: 'O que caracteriza o acoplamento em um monólito?',
+    options: [
+      'As chamadas entre módulos são feitas via rede (HTTP/gRPC).',
+      'As chamadas entre módulos são feitas em memória, através de referências de código direto.',
+      'Não existe acoplamento, pois os módulos são totalmente independentes.',
+      'O acoplamento é definido apenas pelas chaves estrangeiras no banco de dados.',
+      'O acoplamento ocorre apenas entre o frontend e o backend.'
+    ],
+    correctAnswer: 1,
+    explanation: 'O acoplamento em memória é rápido, mas facilita a criação de dependências ocultas e complexas.'
+  },
+  {
+    id: 'mono12',
+    topic: 'Arquitetura Monolítica',
+    question: 'Qual a principal dificuldade de testes de integração em grandes monólitos?',
+    options: [
+      'A falta de ferramentas de teste para linguagens usadas em monólitos.',
+      'A necessidade de subir todo o sistema e suas dependências para validar um fluxo.',
+      'O fato de que monólitos não permitem o uso de mocks ou stubs.',
+      'A velocidade excessiva dos testes que impede a análise dos resultados.',
+      'A interface gráfica que bloqueia a execução de testes automatizados.'
+    ],
+    correctAnswer: 1,
+    explanation: 'Subir um monólito gigante para testes pode ser demorado e consumir muitos recursos de infraestrutura.'
+  },
+  {
+    id: 'mono13',
+    topic: 'Arquitetura Monolítica',
+    question: 'O termo "Strangler Fig Pattern" (Padrão Figo Estrangulador) é usado para:',
+    options: [
+      'Aumentar a performance de consultas SQL em bancos legados.',
+      'Migrar gradualmente funcionalidades de um monólito para microsserviços.',
+      'Bloquear o acesso de usuários não autorizados ao sistema.',
+      'Comprimir o tamanho do artefato final da aplicação.',
+      'Remover código morto que não é mais utilizado no monólito.'
+    ],
+    correctAnswer: 1,
+    explanation: 'Ele consiste em criar novos serviços em volta do monólito até que ele seja totalmente substituído.'
+  },
+  {
+    id: 'mono14',
+    topic: 'Arquitetura Monolítica',
+    question: 'Em termos de transações, o monólito oferece a vantagem de:',
+    options: [
+      'Não precisar de transações, pois o código é síncrono.',
+      'Facilidade em manter transações ACID (Atômicas, Consistentes, Isoladas e Duráveis).',
+      'Substituir o banco de dados por arquivos de texto simples.',
+      'Garantir que as transações nunca falhem, independente de erros de código.',
+      'Permitir transações distribuídas sem o uso de protocolos complexos.'
+    ],
+    correctAnswer: 1,
+    explanation: 'Como os dados costumam estar em um único banco, gerenciar transações é muito mais simples que em sistemas distribuídos.'
+  },
+  {
+    id: 'mono15',
+    topic: 'Arquitetura Monolítica',
+    question: 'Qual o impacto do crescimento do time de desenvolvimento em um monólito?',
+    options: [
+      'A produtividade aumenta linearmente com o número de desenvolvedores.',
+      'Conflitos de merge e coordenação tornam-se mais frequentes e complexos.',
+      'O sistema divide o código automaticamente entre os novos membros.',
+      'Não há impacto, pois cada desenvolvedor trabalha em sua própria cópia do sistema.',
+      'O tempo de deploy diminui, pois há mais pessoas para realizar o processo.'
+    ],
+    correctAnswer: 1,
+    explanation: 'Muitas pessoas mexendo na mesma base de código exige processos rigorosos de integração.'
+  },
 
   // --- MICROSSERVIÇOS (5 Questões) ---
   {
@@ -288,6 +568,146 @@ export const QUIZ_DATABASE: Question[] = [
     ],
     correctAnswer: 1,
     explanation: 'Gerenciar múltiplos serviços exige monitoramento, orquestração e CI/CD robustos.'
+  },
+  {
+    id: 'ms6',
+    topic: 'Microsserviços',
+    question: 'O que é o padrão "Circuit Breaker" (Disjuntor)?',
+    options: [
+      'Um componente de hardware que desliga o servidor em caso de curto-circuito.',
+      'Um padrão que impede que falhas em um serviço se propaguem para outros.',
+      'Uma ferramenta de segurança que bloqueia ataques de força bruta.',
+      'Um algoritmo que reduz o consumo de energia da CPU.',
+      'Um sistema de backup que entra em ação quando o disco falha.'
+    ],
+    correctAnswer: 1,
+    explanation: 'O Circuit Breaker "abre" quando detecta falhas repetidas, evitando sobrecarregar um serviço instável.'
+  },
+  {
+    id: 'ms7',
+    topic: 'Microsserviços',
+    question: 'Qual a função do "Service Discovery" (Descoberta de Serviço)?',
+    options: [
+      'Encontrar desenvolvedores qualificados para trabalhar no projeto.',
+      'Permitir que os serviços localizem uns aos outros dinamicamente na rede.',
+      'Identificar quais serviços estão consumindo mais memória RAM.',
+      'Gerar documentação automática para as APIs do sistema.',
+      'Descobrir vulnerabilidades de segurança no código-fonte.'
+    ],
+    correctAnswer: 1,
+    explanation: 'Em ambientes dinâmicos (nuvem), os endereços IP mudam constantemente; o Service Discovery resolve isso.'
+  },
+  {
+    id: 'ms8',
+    topic: 'Microsserviços',
+    question: 'O que é "Distributed Tracing" (Rastreamento Distribuído)?',
+    options: [
+      'O acompanhamento físico de servidores em diferentes data centers.',
+      'A capacidade de acompanhar o fluxo de uma requisição através de múltiplos serviços.',
+      'Um sistema de GPS para rastrear dispositivos móveis dos usuários.',
+      'O registro de todas as alterações feitas no banco de dados por um usuário.',
+      'A visualização do tráfego de rede em tempo real no dashboard.'
+    ],
+    correctAnswer: 1,
+    explanation: 'Ferramentas como Jaeger ou Zipkin ajudam a identificar gargalos e erros em fluxos complexos.'
+  },
+  {
+    id: 'ms9',
+    topic: 'Microsserviços',
+    question: 'O padrão "Saga" é utilizado para resolver qual problema?',
+    options: [
+      'A lentidão no carregamento de imagens pesadas no frontend.',
+      'A gestão de transações distribuídas entre múltiplos microsserviços.',
+      'O versionamento de APIs que possuem mudanças que quebram a compatibilidade.',
+      'A autenticação de usuários em sistemas que usam redes sociais.',
+      'O armazenamento de grandes volumes de dados não estruturados.'
+    ],
+    correctAnswer: 1,
+    explanation: 'Sagas coordenam sequências de transações locais para garantir a consistência global sem bloqueios longos.'
+  },
+  {
+    id: 'ms10',
+    topic: 'Microsserviços',
+    question: 'O que caracteriza o padrão "Sidecar"?',
+    options: [
+      'Um serviço secundário que roda ao lado do serviço principal para fornecer recursos extras.',
+      'Uma técnica de design para criar menus laterais em aplicações web.',
+      'Um servidor de backup que armazena cópias dos logs de erro.',
+      'Um dispositivo de hardware conectado via USB ao servidor.',
+      'Um desenvolvedor assistente que revisa o código em tempo real.'
+    ],
+    correctAnswer: 0,
+    explanation: 'Comum em Kubernetes, o Sidecar lida com tarefas como logging, monitoramento ou segurança de rede.'
+  },
+  {
+    id: 'ms11',
+    topic: 'Microsserviços',
+    question: 'O que é um "Service Mesh" (Malha de Serviço)?',
+    options: [
+      'Uma rede física de cabos de fibra ótica que conecta os servidores.',
+      'Uma camada de infraestrutura para gerenciar a comunicação entre serviços.',
+      'Um framework para criar interfaces de usuário baseadas em grids.',
+      'Um conjunto de regras de negócio que define como os serviços devem operar.',
+      'Uma ferramenta de compressão de dados para transferências via rede.'
+    ],
+    correctAnswer: 1,
+    explanation: 'Service Meshes (como Istio) lidam com tráfego, segurança e observabilidade de forma transparente.'
+  },
+  {
+    id: 'ms12',
+    topic: 'Microsserviços',
+    question: 'Qual a importância de "Health Checks" (Verificações de Saúde)?',
+    options: [
+      'Garantir que os desenvolvedores façam pausas para descanso.',
+      'Permitir que o orquestrador saiba se um serviço está pronto para receber tráfego.',
+      'Verificar se a licença do sistema operacional ainda é válida.',
+      'Monitorar a temperatura física dos processadores no data center.',
+      'Validar se o usuário possui um plano de saúde ativo no sistema.'
+    ],
+    correctAnswer: 1,
+    explanation: 'Health checks permitem a autorrecuperação (self-healing) ao reiniciar serviços travados.'
+  },
+  {
+    id: 'ms13',
+    topic: 'Microsserviços',
+    question: 'O que é "Log Aggregation" (Agregação de Logs)?',
+    options: [
+      'A prática de deletar logs antigos para economizar espaço em disco.',
+      'A centralização de logs de múltiplos serviços em um único local para análise.',
+      'O uso de algoritmos de compressão para diminuir o tamanho dos arquivos de log.',
+      'A tradução automática de mensagens de erro para o idioma local.',
+      'A criação de logs manuais em cadernos de papel pelos operadores.'
+    ],
+    correctAnswer: 1,
+    explanation: 'Centralizar logs (ex: ELK Stack) é vital para depurar problemas em sistemas distribuídos.'
+  },
+  {
+    id: 'ms14',
+    topic: 'Microsserviços',
+    question: 'O que define um "Blue-Green Deployment"?',
+    options: [
+      'Uma técnica de design que usa apenas as cores azul e verde na interface.',
+      'A manutenção de dois ambientes idênticos para reduzir o downtime e riscos.',
+      'O processo de atualizar o sistema apenas durante o dia (Blue) e não à noite (Green).',
+      'A separação entre o código de produção (Blue) e o código de teste (Green).',
+      'O uso de energia solar (Green) para alimentar os servidores (Blue).'
+    ],
+    correctAnswer: 1,
+    explanation: 'Permite virar a chave para a nova versão instantaneamente e voltar atrás se algo falhar.'
+  },
+  {
+    id: 'ms15',
+    topic: 'Microsserviços',
+    question: 'Qual o objetivo de um "Canary Release"?',
+    options: [
+      'Testar a resistência do hardware a altas temperaturas.',
+      'Liberar uma nova versão para um pequeno grupo de usuários antes do rollout total.',
+      'Verificar se o sistema funciona em navegadores muito antigos.',
+      'Detectar a presença de gases tóxicos no ambiente do data center.',
+      'Garantir que a aplicação não consuma mais de 10% da CPU.'
+    ],
+    correctAnswer: 1,
+    explanation: 'Ajuda a detectar problemas em produção com impacto mínimo antes de afetar todos os usuários.'
   },
 
   // --- PADRÃO MVC (5 Questões) ---

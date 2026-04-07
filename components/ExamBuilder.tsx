@@ -1,6 +1,5 @@
 
 import React, { useState, useMemo } from 'react';
-import { QUIZ_DATABASE } from '../constants';
 import { Topic, Question } from '../types';
 import { shuffleArray } from '../App';
 
@@ -10,6 +9,7 @@ interface ExamBuilderProps {
   onToggleSelection: (id: string) => void;
   onSelectMultiple: (ids: string[]) => void;
   onClearSelection: () => void;
+  questions: Question[];
 }
 
 const ExamBuilder: React.FC<ExamBuilderProps> = ({ 
@@ -17,7 +17,8 @@ const ExamBuilder: React.FC<ExamBuilderProps> = ({
   selectedIds, 
   onToggleSelection, 
   onSelectMultiple,
-  onClearSelection 
+  onClearSelection,
+  questions
 }) => {
   const [filterTopic, setFilterTopic] = useState<Topic | 'Todos'>('Todos');
   const [showPreview, setShowPreview] = useState(false);
@@ -26,15 +27,15 @@ const ExamBuilder: React.FC<ExamBuilderProps> = ({
   // Extração dinâmica de tópicos para evitar falhas de sincronização
   const dynamicTopics = useMemo(() => {
     const set = new Set<string>();
-    QUIZ_DATABASE.forEach(q => set.add(q.topic));
+    questions.forEach(q => set.add(q.topic));
     return ['Todos', ...Array.from(set).sort()] as (Topic | 'Todos')[];
-  }, []);
+  }, [questions]);
 
   const filteredQuestions = useMemo(() => {
     return filterTopic === 'Todos' 
-      ? QUIZ_DATABASE 
-      : QUIZ_DATABASE.filter(q => q.topic === filterTopic);
-  }, [filterTopic]);
+      ? questions 
+      : questions.filter(q => q.topic === filterTopic);
+  }, [filterTopic, questions]);
 
   const selectAllFiltered = () => {
     const filteredIds = filteredQuestions.map(q => q.id);
@@ -42,7 +43,7 @@ const ExamBuilder: React.FC<ExamBuilderProps> = ({
   };
 
   const generateExamContent = () => {
-    const selectedQuestions = QUIZ_DATABASE.filter(q => selectedIds.includes(q.id));
+    const selectedQuestions = questions.filter(q => selectedIds.includes(q.id));
     
     // Embaralhar as questões selecionadas para organização
     const shuffledQuestions = shuffleArray(selectedQuestions);

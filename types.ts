@@ -1,13 +1,5 @@
 
-export type Topic = 
-  | 'Design Patterns' 
-  | 'DDD' 
-  | 'Arquitetura Monolítica' 
-  | 'Microsserviços' 
-  | 'Padrão MVC' 
-  | 'Frameworks' 
-  | 'Arquitetura em Camadas' 
-  | 'Refatoração';
+export type Topic = string;
 
 export interface Question {
   id: string;

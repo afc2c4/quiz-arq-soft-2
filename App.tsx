@@ -3,7 +3,9 @@ import React, { useState, useMemo } from 'react';
 import Header from './components/Header';
 import QuizCard from './components/QuizCard';
 import ExamBuilder from './components/ExamBuilder';
-import { QUIZ_DATABASE } from './constants';
+import AdminDashboard from './components/AdminDashboard';
+import Login from './components/Login';
+import { useDatabase } from './hooks/useDatabase';
 import { Topic, QuizState, Question } from './types';
 
 export const shuffleArray = <T,>(array: T[]): T[] => {
@@ -15,9 +17,43 @@ export const shuffleArray = <T,>(array: T[]): T[] => {
   return shuffled;
 };
 
+const DEFAULT_DISCIPLINE_MAPPING: Record<string, { topics: string[], icon: string, description: string, color: string }> = {
+  'Engenharia e Padrões': {
+    topics: ['Design Patterns', 'Refatoração', 'Padrão MVC'],
+    icon: 'fas fa-drafting-compass',
+    description: 'Domine os padrões de projeto clássicos, técnicas de refatoração e o padrão MVC.',
+    color: 'bg-blue-100 text-blue-600'
+  },
+  'Arquitetura de Sistemas': {
+    topics: ['Arquitetura Monolítica', 'Microsserviços', 'Arquitetura em Camadas'],
+    icon: 'fas fa-cubes',
+    description: 'Explore diferentes estilos arquiteturais, de monólitos a microsserviços distribuídos.',
+    color: 'bg-purple-100 text-purple-600'
+  },
+  'Design e Frameworks': {
+    topics: ['DDD', 'Frameworks'],
+    icon: 'fas fa-layer-group',
+    description: 'Aprofunde-se em Domain-Driven Design e o papel dos frameworks modernos.',
+    color: 'bg-emerald-100 text-emerald-600'
+  }
+};
+
 const App: React.FC = () => {
+  const { 
+    questions, 
+    topics, 
+    addQuestion, 
+    updateQuestion, 
+    deleteQuestion, 
+    addTopic, 
+    updateTopic, 
+    deleteTopic 
+  } = useDatabase();
+
   const [isDarkMode, setIsDarkMode] = useState(false);
-  const [view, setView] = useState<'quiz' | 'exam-builder'>('quiz');
+  const [view, setView] = useState<'quiz' | 'exam-builder' | 'admin' | 'login'>('quiz');
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [selectedDiscipline, setSelectedDiscipline] = useState<string | null>(null);
   const [shuffledQuestions, setShuffledQuestions] = useState<Question[]>([]);
   const [state, setState] = useState<QuizState>({
     currentTopic: null,
@@ -32,17 +68,32 @@ const App: React.FC = () => {
 
   const toggleDarkMode = () => setIsDarkMode(!isDarkMode);
 
-  // Tópicos dinâmicos para a tela inicial
-  const topics = useMemo(() => {
-    const set = new Set<Topic>();
-    QUIZ_DATABASE.forEach(q => set.add(q.topic));
-    return Array.from(set).sort();
-  }, []);
-
   const currentQuestion = shuffledQuestions[state.currentQuestionIndex];
 
+  // Mapeamento dinâmico baseado nos tópicos do banco
+  const disciplineMapping = useMemo(() => {
+    const mapping = { ...DEFAULT_DISCIPLINE_MAPPING };
+    const mappedTopics = new Set(Object.values(mapping).flatMap(d => d.topics));
+    const unmappedTopics = topics.filter(t => !mappedTopics.has(t));
+
+    if (unmappedTopics.length > 0) {
+      mapping['Outras Disciplinas'] = {
+        topics: unmappedTopics,
+        icon: 'fas fa-folder-plus',
+        description: 'Tópicos diversos e novas áreas de estudo adicionadas recentemente.',
+        color: 'bg-gray-100 text-gray-600'
+      };
+    }
+    return mapping;
+  }, [topics]);
+
   const handleStartQuiz = (topic: Topic) => {
-    const topicQuestions = QUIZ_DATABASE.filter(q => q.topic === topic);
+    const topicQuestions = questions.filter(q => q.topic === topic);
+    if (topicQuestions.length === 0) {
+      alert('Este tópico ainda não possui questões.');
+      return;
+    }
+
     const processedQuestions = shuffleArray(topicQuestions).map(q => {
       const originalCorrectOption = q.options[q.correctAnswer];
       const newOptions = shuffleArray(q.options);
@@ -100,6 +151,18 @@ const App: React.FC = () => {
       isFinished: false,
     });
     setShuffledQuestions([]);
+    setSelectedDiscipline(null);
+  };
+
+  const handleBackToTopics = () => {
+    setState({
+      currentTopic: null,
+      currentQuestionIndex: 0,
+      score: 0,
+      userAnswers: {},
+      isFinished: false,
+    });
+    setShuffledQuestions([]);
   };
 
   const toggleSelectForExam = (id: string) => {
@@ -119,55 +182,100 @@ const App: React.FC = () => {
     setSelectedForExam([]);
   };
 
-  const renderTopicSelection = () => (
-    <div className="max-w-4xl mx-auto px-4 py-12 text-center animate-in fade-in duration-700">
-      <h2 className={`text-3xl md:text-4xl font-extrabold mb-4 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-        Mestre da Arquitetura
-      </h2>
-      <p className={`mb-12 max-w-2xl mx-auto ${isDarkMode ? 'text-slate-300' : 'text-gray-600'}`}>
-        Teste seus conhecimentos teóricos em padrões de projeto, arquiteturas modernas e boas práticas de engenharia de software.
-      </p>
+  const handleLogin = (password: string) => {
+    if (password === 'senha123') {
+      setIsLoggedIn(true);
+      setView('admin');
+    }
+  };
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {topics.map(topic => (
+  const handleLogout = () => {
+    setIsLoggedIn(false);
+    setView('quiz');
+  };
+
+  const renderTopicSelection = () => {
+    if (!selectedDiscipline) {
+      return (
+        <div className="max-w-5xl mx-auto px-4 py-12 text-center animate-in fade-in duration-700">
+          <h2 className={`text-3xl md:text-4xl font-extrabold mb-4 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+            Mestre da Arquitetura
+          </h2>
+          <p className={`mb-12 max-w-2xl mx-auto ${isDarkMode ? 'text-slate-300' : 'text-gray-600'}`}>
+            Escolha uma disciplina para começar sua jornada de aprendizado em engenharia de software.
+          </p>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            {Object.entries(disciplineMapping).map(([name, data]) => (
+              <button
+                key={name}
+                onClick={() => setSelectedDiscipline(name)}
+                className={`p-8 rounded-3xl shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 border-b-4 border-transparent hover:border-blue-500 text-left group
+                  ${isDarkMode ? 'bg-slate-800 text-white' : 'bg-white text-gray-800'}`}
+              >
+                <div className={`w-16 h-16 rounded-2xl mb-6 flex items-center justify-center text-3xl ${data.color}`}>
+                  <i className={data.icon}></i>
+                </div>
+                <h3 className="text-2xl font-bold mb-3">{name}</h3>
+                <p className={`text-sm leading-relaxed mb-6 ${isDarkMode ? 'text-slate-400' : 'text-gray-500'}`}>
+                  {data.description}
+                </p>
+                <div className="flex items-center text-blue-500 font-semibold group-hover:translate-x-1 transition-transform">
+                  Ver Questionários <i className="fas fa-arrow-right ml-2 text-xs"></i>
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    const disciplineData = disciplineMapping[selectedDiscipline];
+    const disciplineTopics = disciplineData.topics;
+
+    return (
+      <div className="max-w-4xl mx-auto px-4 py-12 animate-in slide-in-from-right duration-500">
+        <div className="flex items-center mb-8">
           <button
-            key={topic}
-            onClick={() => handleStartQuiz(topic)}
-            className={`p-8 rounded-3xl shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 border-b-4 border-transparent hover:border-blue-500 text-left group
-              ${isDarkMode ? 'bg-slate-800 text-white' : 'bg-white text-gray-800'}`}
+            onClick={() => setSelectedDiscipline(null)}
+            className={`flex items-center gap-2 font-bold transition-colors ${isDarkMode ? 'text-slate-400 hover:text-white' : 'text-gray-500 hover:text-gray-900'}`}
           >
-            <div className={`w-14 h-14 rounded-2xl mb-4 flex items-center justify-center text-2xl 
-              ${topic === 'Design Patterns' ? 'bg-blue-100 text-blue-600' : 
-                topic === 'DDD' ? 'bg-green-100 text-green-600' : 
-                topic === 'Arquitetura Monolítica' ? 'bg-orange-100 text-orange-600' : 
-                topic === 'Microsserviços' ? 'bg-purple-100 text-purple-600' : 
-                topic === 'Padrão MVC' ? 'bg-red-100 text-red-600' :
-                topic === 'Frameworks' ? 'bg-indigo-100 text-indigo-600' :
-                topic === 'Arquitetura em Camadas' ? 'bg-cyan-100 text-cyan-600' :
-                'bg-emerald-100 text-emerald-600'}`}>
-              <i className={
-                topic === 'Design Patterns' ? 'fas fa-drafting-compass' : 
-                topic === 'DDD' ? 'fas fa-layer-group' : 
-                topic === 'Arquitetura Monolítica' ? 'fas fa-cube' : 
-                topic === 'Microsserviços' ? 'fas fa-cubes' : 
-                topic === 'Padrão MVC' ? 'fas fa-columns' :
-                topic === 'Frameworks' ? 'fas fa-box-open' :
-                topic === 'Arquitetura em Camadas' ? 'fas fa-align-justify' :
-                'fas fa-tools'
-              }></i>
-            </div>
-            <h3 className="text-xl font-bold mb-2">{topic}</h3>
-            <p className={`text-sm leading-relaxed ${isDarkMode ? 'text-slate-400' : 'text-gray-500'}`}>
-              Explore os fundamentos de {topic} e domine a teoria por trás da engenharia.
-            </p>
-            <div className="mt-6 flex items-center text-blue-500 font-semibold group-hover:translate-x-1 transition-transform">
-              Começar Quiz <i className="fas fa-arrow-right ml-2 text-xs"></i>
-            </div>
+            <i className="fas fa-arrow-left"></i> Voltar para Disciplinas
           </button>
-        ))}
+        </div>
+
+        <div className="text-center mb-12">
+          <div className={`inline-flex w-16 h-16 rounded-2xl mb-4 items-center justify-center text-3xl ${disciplineData.color}`}>
+            <i className={disciplineData.icon}></i>
+          </div>
+          <h2 className={`text-3xl font-extrabold mb-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+            {selectedDiscipline}
+          </h2>
+          <p className={`${isDarkMode ? 'text-slate-400' : 'text-gray-500'}`}>
+            Selecione um tópico para testar seus conhecimentos.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {disciplineTopics.map(topic => (
+            <button
+              key={topic}
+              onClick={() => handleStartQuiz(topic)}
+              className={`p-6 rounded-2xl shadow-md hover:shadow-xl transition-all duration-300 border border-transparent hover:border-blue-500 text-left group
+                ${isDarkMode ? 'bg-slate-800 text-white' : 'bg-white text-gray-800'}`}
+            >
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-bold">{topic}</h3>
+                <div className="w-8 h-8 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center group-hover:bg-blue-600 group-hover:text-white transition-colors">
+                  <i className="fas fa-play text-xs"></i>
+                </div>
+              </div>
+            </button>
+          ))}
+        </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   const renderQuiz = () => {
     const progress = ((state.currentQuestionIndex + 1) / shuffledQuestions.length) * 100;
@@ -175,11 +283,17 @@ const App: React.FC = () => {
       <div className="max-w-3xl mx-auto px-4 py-12">
         <div className="mb-8">
           <div className="flex justify-between items-center mb-4">
+            <button
+              onClick={handleBackToTopics}
+              className={`text-sm font-bold flex items-center gap-2 ${isDarkMode ? 'text-slate-400 hover:text-white' : 'text-gray-500 hover:text-gray-900'}`}
+            >
+              <i className="fas fa-times"></i> Sair do Quiz
+            </button>
             <span className={`text-sm font-semibold ${isDarkMode ? 'text-slate-400' : 'text-gray-500'}`}>
               Questão {state.currentQuestionIndex + 1} de {shuffledQuestions.length}
             </span>
             <span className="text-sm font-bold text-blue-500">
-              {Math.round(progress)}% Concluído
+              {Math.round(progress)}%
             </span>
           </div>
           <div className={`w-full rounded-full h-3 overflow-hidden shadow-inner ${isDarkMode ? 'bg-slate-700' : 'bg-gray-200'}`}>
@@ -253,10 +367,10 @@ const App: React.FC = () => {
           </p>
           
           <button
-            onClick={handleReset}
+            onClick={handleBackToTopics}
             className="w-full bg-blue-600 hover:bg-blue-700 text-white font-black py-4 rounded-2xl shadow-lg transition-all transform active:scale-95 flex items-center justify-center gap-3"
           >
-            <i className="fas fa-redo"></i> Voltar para Início
+            <i className="fas fa-redo"></i> Voltar para Tópicos
           </button>
         </div>
       </div>
@@ -271,23 +385,54 @@ const App: React.FC = () => {
         onToggleDarkMode={toggleDarkMode} 
         currentView={view}
         onSetView={setView}
+        isLoggedIn={isLoggedIn}
+        onLogout={handleLogout}
       />
       
       <main className="flex-grow flex flex-col">
-        {view === 'quiz' ? (
+        {view === 'quiz' && (
           <>
             {!state.currentTopic && renderTopicSelection()}
             {state.currentTopic && !state.isFinished && renderQuiz()}
             {state.isFinished && renderResults()}
           </>
-        ) : (
-          <ExamBuilder 
-            isDarkMode={isDarkMode} 
-            selectedIds={selectedForExam}
-            onToggleSelection={toggleSelectForExam}
-            onSelectMultiple={handleSelectMultiple}
-            onClearSelection={handleClearSelection}
-          />
+        )}
+        
+        {view === 'login' && (
+          <Login onLogin={handleLogin} isDarkMode={isDarkMode} />
+        )}
+
+        {view === 'exam-builder' && (
+          isLoggedIn ? (
+            <ExamBuilder 
+              isDarkMode={isDarkMode} 
+              selectedIds={selectedForExam}
+              onToggleSelection={toggleSelectForExam}
+              onSelectMultiple={handleSelectMultiple}
+              onClearSelection={handleClearSelection}
+              questions={questions}
+            />
+          ) : (
+            <Login onLogin={handleLogin} isDarkMode={isDarkMode} />
+          )
+        )}
+
+        {view === 'admin' && (
+          isLoggedIn ? (
+            <AdminDashboard
+              isDarkMode={isDarkMode}
+              questions={questions}
+              topics={topics}
+              onAddQuestion={addQuestion}
+              onUpdateQuestion={updateQuestion}
+              onDeleteQuestion={deleteQuestion}
+              onAddTopic={addTopic}
+              onUpdateTopic={updateTopic}
+              onDeleteTopic={deleteTopic}
+            />
+          ) : (
+            <Login onLogin={handleLogin} isDarkMode={isDarkMode} />
+          )
         )}
       </main>
 

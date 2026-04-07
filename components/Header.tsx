@@ -5,11 +5,21 @@ interface HeaderProps {
   onHome: () => void;
   isDarkMode: boolean;
   onToggleDarkMode: () => void;
-  currentView: 'quiz' | 'exam-builder';
-  onSetView: (view: 'quiz' | 'exam-builder') => void;
+  currentView: 'quiz' | 'exam-builder' | 'admin' | 'login';
+  onSetView: (view: 'quiz' | 'exam-builder' | 'admin' | 'login') => void;
+  isLoggedIn: boolean;
+  onLogout: () => void;
 }
 
-const Header: React.FC<HeaderProps> = ({ onHome, isDarkMode, onToggleDarkMode, currentView, onSetView }) => {
+const Header: React.FC<HeaderProps> = ({ 
+  onHome, 
+  isDarkMode, 
+  onToggleDarkMode, 
+  currentView, 
+  onSetView,
+  isLoggedIn,
+  onLogout
+}) => {
   return (
     <header className={`shadow-sm sticky top-0 z-50 transition-colors duration-500 ${isDarkMode ? 'bg-slate-800 border-b border-slate-700' : 'bg-white'}`}>
       <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
@@ -33,15 +43,44 @@ const Header: React.FC<HeaderProps> = ({ onHome, isDarkMode, onToggleDarkMode, c
             >
               <i className="fas fa-play mr-2"></i>Quiz
             </button>
-            <button 
-              onClick={() => onSetView('exam-builder')}
-              className={`px-3 py-1.5 rounded-lg text-sm font-bold transition-all ${currentView === 'exam-builder' ? 'bg-blue-600 text-white shadow-md' : (isDarkMode ? 'text-slate-400 hover:text-white' : 'text-gray-500 hover:text-gray-700')}`}
-            >
-              <i className="fas fa-file-alt mr-2"></i>Professor
-            </button>
+            
+            {isLoggedIn ? (
+              <>
+                <button 
+                  onClick={() => onSetView('exam-builder')}
+                  className={`px-3 py-1.5 rounded-lg text-sm font-bold transition-all ${currentView === 'exam-builder' ? 'bg-blue-600 text-white shadow-md' : (isDarkMode ? 'text-slate-400 hover:text-white' : 'text-gray-500 hover:text-gray-700')}`}
+                >
+                  <i className="fas fa-file-alt mr-2"></i>Gerador
+                </button>
+                <button 
+                  onClick={() => onSetView('admin')}
+                  className={`px-3 py-1.5 rounded-lg text-sm font-bold transition-all ${currentView === 'admin' ? 'bg-blue-600 text-white shadow-md' : (isDarkMode ? 'text-slate-400 hover:text-white' : 'text-gray-500 hover:text-gray-700')}`}
+                >
+                  <i className="fas fa-user-cog mr-2"></i>Painel
+                </button>
+              </>
+            ) : (
+              <button 
+                onClick={() => onSetView('login')}
+                className={`px-3 py-1.5 rounded-lg text-sm font-bold transition-all ${currentView === 'login' ? 'bg-blue-600 text-white shadow-md' : (isDarkMode ? 'text-slate-400 hover:text-white' : 'text-gray-500 hover:text-gray-700')}`}
+              >
+                <i className="fas fa-lock mr-2"></i>Professor
+              </button>
+            )}
           </nav>
 
           <div className="h-6 w-px bg-gray-200 dark:bg-slate-600 mx-2 hidden sm:block"></div>
+
+          {isLoggedIn && (
+            <button 
+              onClick={onLogout}
+              className={`w-10 h-10 flex items-center justify-center rounded-full transition-all duration-300
+                ${isDarkMode ? 'bg-slate-700 text-red-400 hover:bg-red-900/30' : 'bg-gray-100 text-red-600 hover:bg-red-50'}`}
+              title="Sair"
+            >
+              <i className="fas fa-sign-out-alt"></i>
+            </button>
+          )}
 
           <button 
             onClick={onToggleDarkMode}

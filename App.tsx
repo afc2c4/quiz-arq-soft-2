@@ -18,23 +18,32 @@ export const shuffleArray = <T,>(array: T[]): T[] => {
 };
 
 const DEFAULT_DISCIPLINE_MAPPING: Record<string, { topics: string[], icon: string, description: string, color: string }> = {
-  'Engenharia e Padrões': {
-    topics: ['Design Patterns', 'Refatoração', 'Padrão MVC'],
-    icon: 'fas fa-drafting-compass',
-    description: 'Domine os padrões de projeto clássicos, técnicas de refatoração e o padrão MVC.',
+  'Arquitetura de Software': {
+    topics: [
+      'Design Patterns', 
+      'DDD', 
+      'Arquitetura Monolítica', 
+      'Microsserviços', 
+      'Padrão MVC', 
+      'Frameworks', 
+      'Arquitetura em Camadas', 
+      'Refatoração'
+    ],
+    icon: 'fas fa-sitemap',
+    description: 'Um guia completo sobre padrões de projeto, estilos arquiteturais, DDD e as melhores práticas de engenharia de software.',
     color: 'bg-blue-100 text-blue-600'
   },
-  'Arquitetura de Sistemas': {
-    topics: ['Arquitetura Monolítica', 'Microsserviços', 'Arquitetura em Camadas'],
-    icon: 'fas fa-cubes',
-    description: 'Explore diferentes estilos arquiteturais, de monólitos a microsserviços distribuídos.',
-    color: 'bg-purple-100 text-purple-600'
+  'Qualidade e Teste de Software': {
+    topics: ['Cenários e Casos de Teste', 'Aula 02 - Gestão', 'Fundamentos e Modelo V', 'Aula 04 - Estratégia e Táticas', 'Aula 05 — Níveis & Tipos de Testes de Software', 'Aula 06: Técnicas de Teste de Software', 'Aula 07: Ambiente de Testes e Automação', 'Aula 08: Frameworks'],
+    icon: 'fas fa-vial',
+    description: 'Aprenda sobre garantia de qualidade, elaboração de cenários e casos de teste para sistemas robustos.',
+    color: 'bg-green-100 text-green-600'
   },
-  'Design e Frameworks': {
-    topics: ['DDD', 'Frameworks'],
-    icon: 'fas fa-layer-group',
-    description: 'Aprofunde-se em Domain-Driven Design e o papel dos frameworks modernos.',
-    color: 'bg-emerald-100 text-emerald-600'
+  'Desenvolvimento Front End': {
+    topics: ['HTML5', 'CSS3', 'Bootstrap', 'Javascript'],
+    icon: 'fas fa-code',
+    description: 'Aprenda sobre tecnologias web, frameworks de interface, CSS e boas práticas de desenvolvimento front-end.',
+    color: 'bg-indigo-100 text-indigo-600'
   }
 };
 
@@ -42,21 +51,25 @@ const App: React.FC = () => {
   const { 
     questions, 
     topics, 
+    disciplines,
     addQuestion, 
     updateQuestion, 
     deleteQuestion, 
     addTopic, 
     updateTopic, 
-    deleteTopic 
+    deleteTopic,
+    addDiscipline,
+    updateDiscipline,
+    deleteDiscipline
   } = useDatabase();
 
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [view, setView] = useState<'quiz' | 'exam-builder' | 'admin' | 'login'>('quiz');
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [selectedDiscipline, setSelectedDiscipline] = useState<string | null>(null);
+  const [selectedDisciplineId, setSelectedDisciplineId] = useState<string | null>(null);
   const [shuffledQuestions, setShuffledQuestions] = useState<Question[]>([]);
   const [state, setState] = useState<QuizState>({
-    currentTopic: null,
+    currentTopicId: null,
     currentQuestionIndex: 0,
     score: 0,
     userAnswers: {},
@@ -70,25 +83,8 @@ const App: React.FC = () => {
 
   const currentQuestion = shuffledQuestions[state.currentQuestionIndex];
 
-  // Mapeamento dinâmico baseado nos tópicos do banco
-  const disciplineMapping = useMemo(() => {
-    const mapping = { ...DEFAULT_DISCIPLINE_MAPPING };
-    const mappedTopics = new Set(Object.values(mapping).flatMap(d => d.topics));
-    const unmappedTopics = topics.filter(t => !mappedTopics.has(t));
-
-    if (unmappedTopics.length > 0) {
-      mapping['Outras Disciplinas'] = {
-        topics: unmappedTopics,
-        icon: 'fas fa-folder-plus',
-        description: 'Tópicos diversos e novas áreas de estudo adicionadas recentemente.',
-        color: 'bg-gray-100 text-gray-600'
-      };
-    }
-    return mapping;
-  }, [topics]);
-
-  const handleStartQuiz = (topic: Topic) => {
-    const topicQuestions = questions.filter(q => q.topic === topic);
+  const handleStartQuiz = (topicId: string) => {
+    const topicQuestions = questions.filter(q => q.topicId === topicId);
     if (topicQuestions.length === 0) {
       alert('Este tópico ainda não possui questões.');
       return;
@@ -107,7 +103,7 @@ const App: React.FC = () => {
 
     setShuffledQuestions(processedQuestions);
     setState({
-      currentTopic: topic,
+      currentTopicId: topicId,
       currentQuestionIndex: 0,
       score: 0,
       userAnswers: {},
@@ -144,19 +140,19 @@ const App: React.FC = () => {
 
   const handleReset = () => {
     setState({
-      currentTopic: null,
+      currentTopicId: null,
       currentQuestionIndex: 0,
       score: 0,
       userAnswers: {},
       isFinished: false,
     });
     setShuffledQuestions([]);
-    setSelectedDiscipline(null);
+    setSelectedDisciplineId(null);
   };
 
   const handleBackToTopics = () => {
     setState({
-      currentTopic: null,
+      currentTopicId: null,
       currentQuestionIndex: 0,
       score: 0,
       userAnswers: {},
@@ -195,33 +191,27 @@ const App: React.FC = () => {
   };
 
   const renderTopicSelection = () => {
-    if (!selectedDiscipline) {
+    if (!selectedDisciplineId) {
       return (
         <div className="max-w-5xl mx-auto px-4 py-12 text-center animate-in fade-in duration-700">
           <h2 className={`text-3xl md:text-4xl font-extrabold mb-4 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-            Mestre da Arquitetura
+            Mestre Digital
           </h2>
           <p className={`mb-12 max-w-2xl mx-auto ${isDarkMode ? 'text-slate-300' : 'text-gray-600'}`}>
-            Escolha uma disciplina para começar sua jornada de aprendizado em engenharia de software.
+            Escolha uma disciplina para começar sua jornada de aprendizado.
           </p>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {Object.entries(disciplineMapping).map(([name, data]) => (
+            {disciplines.map(d => (
               <button
-                key={name}
-                onClick={() => setSelectedDiscipline(name)}
+                key={d.id}
+                onClick={() => setSelectedDisciplineId(d.id)}
                 className={`p-8 rounded-3xl shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 border-b-4 border-transparent hover:border-blue-500 text-left group
                   ${isDarkMode ? 'bg-slate-800 text-white' : 'bg-white text-gray-800'}`}
               >
-                <div className={`w-16 h-16 rounded-2xl mb-6 flex items-center justify-center text-3xl ${data.color}`}>
-                  <i className={data.icon}></i>
-                </div>
-                <h3 className="text-2xl font-bold mb-3">{name}</h3>
-                <p className={`text-sm leading-relaxed mb-6 ${isDarkMode ? 'text-slate-400' : 'text-gray-500'}`}>
-                  {data.description}
-                </p>
+                <h3 className="text-2xl font-bold mb-3">{d.name}</h3>
                 <div className="flex items-center text-blue-500 font-semibold group-hover:translate-x-1 transition-transform">
-                  Ver Questionários <i className="fas fa-arrow-right ml-2 text-xs"></i>
+                  Ver Tópicos <i className="fas fa-arrow-right ml-2 text-xs"></i>
                 </div>
               </button>
             ))}
@@ -230,14 +220,14 @@ const App: React.FC = () => {
       );
     }
 
-    const disciplineData = disciplineMapping[selectedDiscipline];
-    const disciplineTopics = disciplineData.topics;
+    const discipline = disciplines.find(d => d.id === selectedDisciplineId);
+    const disciplineTopics = topics.filter(t => t.disciplineId === selectedDisciplineId);
 
     return (
       <div className="max-w-4xl mx-auto px-4 py-12 animate-in slide-in-from-right duration-500">
         <div className="flex items-center mb-8">
           <button
-            onClick={() => setSelectedDiscipline(null)}
+            onClick={() => setSelectedDisciplineId(null)}
             className={`flex items-center gap-2 font-bold transition-colors ${isDarkMode ? 'text-slate-400 hover:text-white' : 'text-gray-500 hover:text-gray-900'}`}
           >
             <i className="fas fa-arrow-left"></i> Voltar para Disciplinas
@@ -245,11 +235,8 @@ const App: React.FC = () => {
         </div>
 
         <div className="text-center mb-12">
-          <div className={`inline-flex w-16 h-16 rounded-2xl mb-4 items-center justify-center text-3xl ${disciplineData.color}`}>
-            <i className={disciplineData.icon}></i>
-          </div>
           <h2 className={`text-3xl font-extrabold mb-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-            {selectedDiscipline}
+            {discipline?.name}
           </h2>
           <p className={`${isDarkMode ? 'text-slate-400' : 'text-gray-500'}`}>
             Selecione um tópico para testar seus conhecimentos.
@@ -259,13 +246,13 @@ const App: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {disciplineTopics.map(topic => (
             <button
-              key={topic}
-              onClick={() => handleStartQuiz(topic)}
+              key={topic.id}
+              onClick={() => handleStartQuiz(topic.id)}
               className={`p-6 rounded-2xl shadow-md hover:shadow-xl transition-all duration-300 border border-transparent hover:border-blue-500 text-left group
                 ${isDarkMode ? 'bg-slate-800 text-white' : 'bg-white text-gray-800'}`}
             >
               <div className="flex items-center justify-between">
-                <h3 className="text-lg font-bold">{topic}</h3>
+                <h3 className="text-lg font-bold">{topic.name}</h3>
                 <div className="w-8 h-8 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center group-hover:bg-blue-600 group-hover:text-white transition-colors">
                   <i className="fas fa-play text-xs"></i>
                 </div>
@@ -392,8 +379,8 @@ const App: React.FC = () => {
       <main className="flex-grow flex flex-col">
         {view === 'quiz' && (
           <>
-            {!state.currentTopic && renderTopicSelection()}
-            {state.currentTopic && !state.isFinished && renderQuiz()}
+            {!state.currentTopicId && renderTopicSelection()}
+            {state.currentTopicId && !state.isFinished && renderQuiz()}
             {state.isFinished && renderResults()}
           </>
         )}
@@ -411,6 +398,7 @@ const App: React.FC = () => {
               onSelectMultiple={handleSelectMultiple}
               onClearSelection={handleClearSelection}
               questions={questions}
+              topics={topics}
             />
           ) : (
             <Login onLogin={handleLogin} isDarkMode={isDarkMode} />
@@ -423,12 +411,16 @@ const App: React.FC = () => {
               isDarkMode={isDarkMode}
               questions={questions}
               topics={topics}
+              disciplines={disciplines}
               onAddQuestion={addQuestion}
               onUpdateQuestion={updateQuestion}
               onDeleteQuestion={deleteQuestion}
               onAddTopic={addTopic}
               onUpdateTopic={updateTopic}
               onDeleteTopic={deleteTopic}
+              onAddDiscipline={addDiscipline}
+              onUpdateDiscipline={updateDiscipline}
+              onDeleteDiscipline={deleteDiscipline}
             />
           ) : (
             <Login onLogin={handleLogin} isDarkMode={isDarkMode} />

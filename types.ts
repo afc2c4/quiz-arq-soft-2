@@ -1,17 +1,26 @@
 
-export type Topic = string;
+export interface Discipline {
+  id: string;
+  name: string;
+}
+
+export interface Topic {
+  id: string;
+  name: string;
+  disciplineId: string;
+}
 
 export interface Question {
   id: string;
-  topic: Topic;
+  topicId: string;
   question: string;
   options: string[];
-  correctAnswer: number; // Index of options array (0-4)
+  correctAnswer: number;
   explanation: string;
 }
 
 export interface QuizState {
-  currentTopic: Topic | null;
+  currentTopicId: string | null;
   currentQuestionIndex: number;
   score: number;
   userAnswers: { [questionId: string]: number };

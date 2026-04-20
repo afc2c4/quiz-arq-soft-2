@@ -1,5 +1,6 @@
 {
-  "name": "Mestre da Arquitetura",
-  "description": "Um aplicativo de questionário interativo focado em Arquitetura de software",
-  "requestFramePermissions": []
+  "name": "Mestre Digital",
+  "description": "Um aplicativo de questionário interativo focado em questões relacionada ao Curso de Desenvolvimento de Sistemas",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
 }

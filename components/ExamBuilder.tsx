@@ -10,6 +10,7 @@ interface ExamBuilderProps {
   onSelectMultiple: (ids: string[]) => void;
   onClearSelection: () => void;
   questions: Question[];
+  topics: Topic[];
 }
 
 const ExamBuilder: React.FC<ExamBuilderProps> = ({ 
@@ -18,24 +19,23 @@ const ExamBuilder: React.FC<ExamBuilderProps> = ({
   onToggleSelection, 
   onSelectMultiple,
   onClearSelection,
-  questions
+  questions,
+  topics
 }) => {
-  const [filterTopic, setFilterTopic] = useState<Topic | 'Todos'>('Todos');
+  const [filterTopicId, setFilterTopicId] = useState<string | 'Todos'>('Todos');
   const [showPreview, setShowPreview] = useState(false);
   const [generatedExam, setGeneratedExam] = useState<string>('');
 
   // Extração dinâmica de tópicos para evitar falhas de sincronização
   const dynamicTopics = useMemo(() => {
-    const set = new Set<string>();
-    questions.forEach(q => set.add(q.topic));
-    return ['Todos', ...Array.from(set).sort()] as (Topic | 'Todos')[];
-  }, [questions]);
+    return ['Todos', ...topics.sort((a, b) => a.name.localeCompare(b.name))] as (Topic | 'Todos')[];
+  }, [topics]);
 
   const filteredQuestions = useMemo(() => {
-    return filterTopic === 'Todos' 
+    return filterTopicId === 'Todos' 
       ? questions 
-      : questions.filter(q => q.topic === filterTopic);
-  }, [filterTopic, questions]);
+      : questions.filter(q => q.topicId === filterTopicId);
+  }, [filterTopicId, questions]);
 
   const selectAllFiltered = () => {
     const filteredIds = filteredQuestions.map(q => q.id);
@@ -123,24 +123,29 @@ const ExamBuilder: React.FC<ExamBuilderProps> = ({
       )}
 
       <div className="flex flex-wrap gap-2 mb-8">
-        {dynamicTopics.map(t => (
-          <button
-            key={t}
-            onClick={() => setFilterTopic(t)}
-            className={`px-4 py-2 rounded-full text-xs font-bold transition-all border
-              ${filterTopic === t 
-                ? 'bg-blue-600 border-blue-600 text-white shadow-md' 
-                : (isDarkMode ? 'bg-slate-800 border-slate-700 text-slate-400 hover:border-slate-500' : 'bg-white border-gray-200 text-gray-500 hover:border-blue-300 hover:text-blue-600')
-              }`}
-          >
-            {t}
-          </button>
-        ))}
+        {dynamicTopics.map(t => {
+          const topicId = t === 'Todos' ? 'Todos' : (t as Topic).id;
+          const topicName = t === 'Todos' ? 'Todos' : (t as Topic).name;
+          return (
+            <button
+              key={topicId}
+              onClick={() => setFilterTopicId(topicId)}
+              className={`px-4 py-2 rounded-full text-xs font-bold transition-all border
+                ${filterTopicId === topicId 
+                  ? 'bg-blue-600 border-blue-600 text-white shadow-md' 
+                  : (isDarkMode ? 'bg-slate-800 border-slate-700 text-slate-400 hover:border-slate-500' : 'bg-white border-gray-200 text-gray-500 hover:border-blue-300 hover:text-blue-600')
+                }`}
+            >
+              {topicName}
+            </button>
+          );
+        })}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {filteredQuestions.map(q => {
           const isSelected = selectedIds.includes(q.id);
+          const topic = topics.find(t => t.id === q.topicId);
           return (
             <div 
               key={q.id}
@@ -154,7 +159,7 @@ const ExamBuilder: React.FC<ExamBuilderProps> = ({
               <div className="flex justify-between items-start gap-4 mb-3">
                 <span className={`text-[10px] uppercase tracking-widest font-black px-2 py-0.5 rounded-md
                   ${isDarkMode ? 'bg-slate-700 text-slate-400' : 'bg-gray-100 text-gray-500'}`}>
-                  {q.topic}
+                  {topic?.name || 'Tópico Desconhecido'}
                 </span>
                 <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all
                   ${isSelected ? 'bg-blue-600 border-blue-600 text-white' : 'border-gray-300'}`}>

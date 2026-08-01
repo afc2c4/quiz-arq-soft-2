@@ -10,7 +10,9 @@ O aplicativo permite que o usuário navegue por disciplinas da área de TI (como
 
 ### Principais Funcionalidades:
 - **Organização Hierárquica:** Disciplinas organizadas em tópicos especializados.
+- **Guia Teórico Rápido & Material de Estudo:** Para cada tópico, um resumo conceitual com fundamentação teórica em tópicos (bullet points), boas práticas recomendadas, demonstrações de código práticas (5 a 10 linhas) com opção de cópia e alertas sobre erros comuns/pegadinhas.
 - **Simulado Interativo:** Interface limpa para leitura das questões, seleção de alternativas (A a E) e envio de respostas.
+- **Cronômetro Opcional por Questão:** Limite configurável de tempo (15s, 30s, 45s, 60s) com barra de progresso visual, mudanças de cor por urgência e encerramento automático da questão por *timeout*.
 - **Feedback Imediato & Explicação:** Indicação clara da alternativa correta e explicação detalhada da regra ou conceito abordado.
 - **Persistência de Dados:** Salvamento automático do estado e migração de dados locais via `localStorage`.
 - **Interface Responsiva:** Visual adaptado para dispositivos móveis, tablets e computadores.

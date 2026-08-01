@@ -5,8 +5,10 @@ import QuizCard from './components/QuizCard';
 import ExamBuilder from './components/ExamBuilder';
 import AdminDashboard from './components/AdminDashboard';
 import Login from './components/Login';
+import StudyMaterialView from './components/StudyMaterialView';
 import { useDatabase } from './hooks/useDatabase';
 import { Topic, QuizState, Question } from './types';
+import { getStudyMaterialByTopic } from './src/data/studyMaterials';
 
 export const shuffleArray = <T,>(array: T[]): T[] => {
   const shuffled = [...array];
@@ -95,10 +97,25 @@ const App: React.FC = () => {
 
   const [selectedForExam, setSelectedForExam] = useState<string[]>([]);
   const [showExplanation, setShowExplanation] = useState(false);
+  const [activeStudyTopic, setActiveStudyTopic] = useState<Topic | null>(null);
+  const [showQuizStudyMaterial, setShowQuizStudyMaterial] = useState(false);
+
+  // Question timer settings
+  const [isTimerEnabled, setIsTimerEnabled] = useState(false);
+  const [timeLimit, setTimeLimit] = useState(30);
 
   const toggleDarkMode = () => setIsDarkMode(!isDarkMode);
 
   const currentQuestion = shuffledQuestions[state.currentQuestionIndex];
+
+  const handleTimeout = () => {
+    if (showExplanation) return;
+    setState(prev => ({
+      ...prev,
+      userAnswers: { ...prev.userAnswers, [currentQuestion.id]: -1 }
+    }));
+    setShowExplanation(true);
+  };
 
   const handleStartQuiz = (topicId: string) => {
     const topicQuestions = questions.filter(q => q.topicId === topicId);
@@ -240,6 +257,34 @@ const App: React.FC = () => {
     const discipline = disciplines.find(d => d.id === selectedDisciplineId);
     const disciplineTopics = topics.filter(t => t.disciplineId === selectedDisciplineId);
 
+    if (activeStudyTopic) {
+      const material = getStudyMaterialByTopic(activeStudyTopic);
+      return (
+        <div className="max-w-4xl mx-auto px-4 py-8 animate-in fade-in duration-300">
+          <div className="mb-6">
+            <button
+              onClick={() => setActiveStudyTopic(null)}
+              className={`flex items-center gap-2 font-bold transition-colors ${
+                isDarkMode ? 'text-slate-400 hover:text-white' : 'text-gray-500 hover:text-gray-900'
+              }`}
+            >
+              <i className="fas fa-arrow-left"></i> Voltar para Lista de Tópicos
+            </button>
+          </div>
+          <StudyMaterialView
+            material={material}
+            isDarkMode={isDarkMode}
+            onStartQuiz={() => {
+              const topicToStart = activeStudyTopic;
+              setActiveStudyTopic(null);
+              handleStartQuiz(topicToStart.id);
+            }}
+            onClose={() => setActiveStudyTopic(null)}
+          />
+        </div>
+      );
+    }
+
     return (
       <div className="max-w-4xl mx-auto px-4 py-12 animate-in slide-in-from-right duration-500">
         <div className="flex items-center mb-8">
@@ -251,31 +296,114 @@ const App: React.FC = () => {
           </button>
         </div>
 
-        <div className="text-center mb-12">
+        <div className="text-center mb-8">
           <h2 className={`text-3xl font-extrabold mb-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
             {discipline?.name}
           </h2>
           <p className={`${isDarkMode ? 'text-slate-400' : 'text-gray-500'}`}>
-            Selecione um tópico para testar seus conhecimentos.
+            Acesse o Material de Estudo Teórico ou inicie diretamente o Simulado de Questões.
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {disciplineTopics.map(topic => (
+        {/* Global Timer Settings Banner */}
+        <div className={`mb-8 p-4 rounded-2xl flex flex-wrap items-center justify-between gap-4 border transition-all ${
+          isDarkMode ? 'bg-slate-800/80 border-slate-700' : 'bg-white border-gray-200 shadow-sm'
+        }`}>
+          <div className="flex items-center gap-3">
+            <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors ${
+              isTimerEnabled ? 'bg-blue-100 text-blue-600 dark:bg-blue-900/50 dark:text-blue-400' : 'bg-gray-100 text-gray-400 dark:bg-slate-700'
+            }`}>
+              <i className={`fas fa-stopwatch text-lg ${isTimerEnabled ? 'animate-pulse text-blue-500' : ''}`}></i>
+            </div>
+            <div>
+              <h4 className={`font-bold text-sm ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>
+                Cronômetro por Questão
+              </h4>
+              <p className={`text-xs ${isDarkMode ? 'text-slate-400' : 'text-gray-500'}`}>
+                {isTimerEnabled ? `Tempo limite de ${timeLimit}s por questão` : 'Sem limite de tempo por questão'}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3">
+            {isTimerEnabled && (
+              <select
+                value={timeLimit}
+                onChange={(e) => setTimeLimit(Number(e.target.value))}
+                aria-label="Selecionar tempo limite por questão"
+                className={`text-xs font-bold px-3 py-2 rounded-xl border outline-none cursor-pointer transition-colors ${
+                  isDarkMode ? 'bg-slate-700 text-slate-200 border-slate-600' : 'bg-gray-50 text-gray-700 border-gray-200'
+                }`}
+              >
+                <option value={15}>15s por questão</option>
+                <option value={30}>30s por questão</option>
+                <option value={45}>45s por questão</option>
+                <option value={60}>60s por questão</option>
+              </select>
+            )}
+
             <button
-              key={topic.id}
-              onClick={() => handleStartQuiz(topic.id)}
-              className={`p-6 rounded-2xl shadow-md hover:shadow-xl transition-all duration-300 border border-transparent hover:border-blue-500 text-left group
-                ${isDarkMode ? 'bg-slate-800 text-white' : 'bg-white text-gray-800'}`}
+              onClick={() => setIsTimerEnabled(!isTimerEnabled)}
+              type="button"
+              className={`px-4 py-2 rounded-xl font-bold text-xs transition-all shadow-sm flex items-center gap-2 ${
+                isTimerEnabled
+                  ? 'bg-blue-600 text-white hover:bg-blue-700'
+                  : isDarkMode
+                  ? 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
             >
-              <div className="flex items-center justify-between">
-                <h3 className="text-lg font-bold">{topic.name}</h3>
-                <div className="w-8 h-8 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center group-hover:bg-blue-600 group-hover:text-white transition-colors">
-                  <i className="fas fa-play text-xs"></i>
+              <i className={`fas ${isTimerEnabled ? 'fa-check-circle' : 'fa-clock'}`}></i>
+              {isTimerEnabled ? 'Ativado' : 'Ativar Cronômetro'}
+            </button>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {disciplineTopics.map(topic => {
+            const topicQuestions = questions.filter(q => q.topicId === topic.id);
+            return (
+              <div
+                key={topic.id}
+                className={`p-6 rounded-2xl shadow-md hover:shadow-xl transition-all duration-300 border ${
+                  isDarkMode ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white border-gray-100 text-gray-800'
+                } flex flex-col justify-between gap-4`}
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <span className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-md ${
+                      isDarkMode ? 'bg-blue-900/50 text-blue-300' : 'bg-blue-50 text-blue-700'
+                    }`}>
+                      {topicQuestions.length} {topicQuestions.length === 1 ? 'questão' : 'questões'}
+                    </span>
+                    <h3 className="text-lg font-bold mt-2">{topic.name}</h3>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2.5 pt-2 border-t border-gray-100 dark:border-slate-700">
+                  <button
+                    onClick={() => setActiveStudyTopic(topic)}
+                    type="button"
+                    className={`px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 ${
+                      isDarkMode
+                        ? 'bg-slate-700/80 text-blue-300 hover:bg-slate-700 hover:text-blue-200 border border-slate-600'
+                        : 'bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200/60'
+                    }`}
+                  >
+                    <i className="fas fa-book-open"></i> Material de Estudo
+                  </button>
+
+                  <button
+                    onClick={() => handleStartQuiz(topic.id)}
+                    type="button"
+                    className="px-3.5 py-2.5 rounded-xl text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white transition-all shadow-sm flex items-center justify-center gap-2"
+                  >
+                    <i className="fas fa-play"></i> Iniciar Simulado
+                  </button>
                 </div>
               </div>
-            </button>
-          ))}
+            );
+          })}
         </div>
       </div>
     );
@@ -283,27 +411,61 @@ const App: React.FC = () => {
 
   const renderQuiz = () => {
     const progress = ((state.currentQuestionIndex + 1) / shuffledQuestions.length) * 100;
+    const currentTopicObj = topics.find(t => t.id === state.currentTopicId);
+
     return (
-      <div className="max-w-3xl mx-auto px-4 py-12">
+      <div className="max-w-3xl mx-auto px-4 py-12 relative">
         <div className="mb-8">
-          <div className="flex justify-between items-center mb-4">
+          <div className="flex flex-wrap justify-between items-center gap-3 mb-4">
             <button
               onClick={handleBackToTopics}
               className={`text-sm font-bold flex items-center gap-2 ${isDarkMode ? 'text-slate-400 hover:text-white' : 'text-gray-500 hover:text-gray-900'}`}
             >
               <i className="fas fa-times"></i> Sair do Quiz
             </button>
-            <span className={`text-sm font-semibold ${isDarkMode ? 'text-slate-400' : 'text-gray-500'}`}>
-              Questão {state.currentQuestionIndex + 1} de {shuffledQuestions.length}
-            </span>
-            <span className="text-sm font-bold text-blue-500">
-              {Math.round(progress)}%
-            </span>
+
+            {currentTopicObj && (
+              <button
+                onClick={() => setShowQuizStudyMaterial(true)}
+                type="button"
+                className={`text-xs font-bold px-3 py-1.5 rounded-xl border flex items-center gap-2 transition-all ${
+                  isDarkMode 
+                    ? 'bg-slate-800 text-blue-300 border-slate-700 hover:bg-slate-700' 
+                    : 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100'
+                }`}
+              >
+                <i className="fas fa-book-open"></i>
+                <span>Guia Teórico do Tópico</span>
+              </button>
+            )}
+
+            <div className="flex items-center gap-3">
+              <span className={`text-sm font-semibold ${isDarkMode ? 'text-slate-400' : 'text-gray-500'}`}>
+                Questão {state.currentQuestionIndex + 1} de {shuffledQuestions.length}
+              </span>
+              <span className="text-sm font-bold text-blue-500">
+                {Math.round(progress)}%
+              </span>
+            </div>
           </div>
           <div className={`w-full rounded-full h-3 overflow-hidden shadow-inner ${isDarkMode ? 'bg-slate-700' : 'bg-gray-200'}`}>
             <div className="bg-blue-600 h-full rounded-full transition-all duration-500 ease-out shadow-sm" style={{ width: `${progress}%` }}></div>
           </div>
         </div>
+
+        {/* Modal Overlay for Study Material inside Quiz */}
+        {showQuizStudyMaterial && currentTopicObj && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200 overflow-y-auto">
+            <div className="w-full max-w-4xl my-8">
+              <StudyMaterialView
+                material={getStudyMaterialByTopic(currentTopicObj)}
+                isDarkMode={isDarkMode}
+                onClose={() => setShowQuizStudyMaterial(false)}
+              />
+            </div>
+          </div>
+        )}
+
         {currentQuestion && (
           <QuizCard 
             question={currentQuestion}
@@ -311,6 +473,11 @@ const App: React.FC = () => {
             onSelect={handleSelectOption}
             showCorrect={showExplanation}
             isDarkMode={isDarkMode}
+            isTimerEnabled={isTimerEnabled}
+            timeLimit={timeLimit}
+            onTimeout={handleTimeout}
+            onToggleTimer={() => setIsTimerEnabled(!isTimerEnabled)}
+            onChangeTimeLimit={(limit) => setTimeLimit(limit)}
           />
         )}
         <div className="mt-8 flex justify-end">

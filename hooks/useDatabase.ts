@@ -35,8 +35,10 @@ export const useDatabase = () => {
       const hasBootstrapTopic = parsedTopics.some((t: Topic) => t.id === 't-fe-bootstrap');
       const hasJavascriptTopic = parsedTopics.some((t: Topic) => t.id === 't-fe-javascript');
       const hasFrontEndDiscipline = parsedDisciplines.some((d: Discipline) => d.id === 'd-fe');
+      const hasBackEndDiscipline = parsedDisciplines.some((d: Discipline) => d.id === 'd-be');
+      const hasBeDeployTopic = parsedTopics.some((t: Topic) => t.id === 't-be-deploy');
       
-      if (!hasGestaoTopic || !hasFundamentosTopic || !hasEstrategiaTopic || !hasNiveisTiposTopic || !hasTecnicasTesteTopic || !hasAmbienteAutomacaoTopic || !hasFrameworksQaTopic || !hasHtml5Topic || !hasCss3Topic || !hasBootstrapTopic || !hasJavascriptTopic || !hasFrontEndDiscipline) {
+      if (!hasGestaoTopic || !hasFundamentosTopic || !hasEstrategiaTopic || !hasNiveisTiposTopic || !hasTecnicasTesteTopic || !hasAmbienteAutomacaoTopic || !hasFrameworksQaTopic || !hasHtml5Topic || !hasCss3Topic || !hasBootstrapTopic || !hasJavascriptTopic || !hasFrontEndDiscipline || !hasBackEndDiscipline || !hasBeDeployTopic) {
         // Merge with new migrated data if missing
         const updatedDisciplines = [...parsedDisciplines, ...MIGRATED_DISCIPLINES.filter(md => !parsedDisciplines.some((pd: Discipline) => pd.id === md.id))];
         const updatedTopics = [...parsedTopics, ...MIGRATED_TOPICS.filter(mt => !parsedTopics.some((pt: Topic) => pt.id === mt.id))];

@@ -44,6 +44,23 @@ const DEFAULT_DISCIPLINE_MAPPING: Record<string, { topics: string[], icon: strin
     icon: 'fas fa-code',
     description: 'Aprenda sobre tecnologias web, frameworks de interface, CSS e boas práticas de desenvolvimento front-end.',
     color: 'bg-indigo-100 text-indigo-600'
+  },
+  'Programação Back End': {
+    topics: [
+      'JavaScript Back-End',
+      'Node.js & NPM',
+      'Express.js & APIs',
+      'Autenticação & Segurança',
+      'Microsserviços',
+      'TDD & Testes',
+      'Docker',
+      'Kubernetes',
+      'Streams & Eventos',
+      'Deploy & Debugging'
+    ],
+    icon: 'fas fa-server',
+    description: 'Aprenda sobre Node.js, Express, bancos de dados, microsserviços, conteinerização, segurança e deploy.',
+    color: 'bg-purple-100 text-purple-600'
   }
 };
 

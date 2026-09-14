@@ -8,7 +8,6 @@ import Login from './components/Login';
 import StudyMaterialView from './components/StudyMaterialView';
 import { useDatabase } from './hooks/useDatabase';
 import { Topic, QuizState, Question } from './types';
-import { getStudyMaterialByTopic } from './src/data/studyMaterials';
 
 export const shuffleArray = <T,>(array: T[]): T[] => {
   const shuffled = [...array];
@@ -71,6 +70,11 @@ const App: React.FC = () => {
     questions, 
     topics, 
     disciplines,
+    customMaterials,
+    getStudyMaterial,
+    updateStudyMaterial,
+    resetStudyMaterial,
+    hasCustomStudyMaterial,
     addQuestion, 
     updateQuestion, 
     deleteQuestion, 
@@ -79,7 +83,9 @@ const App: React.FC = () => {
     deleteTopic,
     addDiscipline,
     updateDiscipline,
-    deleteDiscipline
+    deleteDiscipline,
+    importQuestions,
+    importStudyMaterials
   } = useDatabase();
 
   const [isDarkMode, setIsDarkMode] = useState(false);
@@ -258,9 +264,10 @@ const App: React.FC = () => {
     const disciplineTopics = topics.filter(t => t.disciplineId === selectedDisciplineId);
 
     if (activeStudyTopic) {
-      const material = getStudyMaterialByTopic(activeStudyTopic);
+      const material = getStudyMaterial(activeStudyTopic);
+      const isCustomized = hasCustomStudyMaterial(activeStudyTopic.id);
       return (
-        <div className="max-w-4xl mx-auto px-4 py-8 animate-in fade-in duration-300">
+        <div className="max-w-5xl mx-auto px-4 py-8 animate-in fade-in duration-300">
           <div className="mb-6">
             <button
               onClick={() => setActiveStudyTopic(null)}
@@ -274,6 +281,10 @@ const App: React.FC = () => {
           <StudyMaterialView
             material={material}
             isDarkMode={isDarkMode}
+            isLoggedIn={isLoggedIn}
+            isCustomized={isCustomized}
+            onSaveMaterial={updateStudyMaterial}
+            onResetMaterial={resetStudyMaterial}
             onStartQuiz={() => {
               const topicToStart = activeStudyTopic;
               setActiveStudyTopic(null);
@@ -384,13 +395,22 @@ const App: React.FC = () => {
                   <button
                     onClick={() => setActiveStudyTopic(topic)}
                     type="button"
-                    className={`px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 ${
+                    className={`px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
                       isDarkMode
                         ? 'bg-slate-700/80 text-blue-300 hover:bg-slate-700 hover:text-blue-200 border border-slate-600'
                         : 'bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200/60'
                     }`}
                   >
-                    <i className="fas fa-book-open"></i> Material de Estudo
+                    <i className="fas fa-book-open"></i>
+                    <span>Material</span>
+                    {isLoggedIn && (
+                      <span 
+                        className="ml-1 text-[10px] px-1.5 py-0.2 rounded font-extrabold bg-amber-500/20 text-amber-500 dark:text-amber-400 border border-amber-500/30"
+                        title="Professor: pode editar este material diretamente"
+                      >
+                        ✏️ {hasCustomStudyMaterial(topic.id) ? 'Editado' : 'Editar'}
+                      </span>
+                    )}
                   </button>
 
                   <button
@@ -436,6 +456,11 @@ const App: React.FC = () => {
               >
                 <i className="fas fa-book-open"></i>
                 <span>Guia Teórico do Tópico</span>
+                {isLoggedIn && (
+                  <span className="text-[10px] bg-amber-500/20 text-amber-500 font-bold px-1 rounded">
+                    ✏️
+                  </span>
+                )}
               </button>
             )}
 
@@ -456,10 +481,14 @@ const App: React.FC = () => {
         {/* Modal Overlay for Study Material inside Quiz */}
         {showQuizStudyMaterial && currentTopicObj && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200 overflow-y-auto">
-            <div className="w-full max-w-4xl my-8">
+            <div className="w-full max-w-5xl my-8">
               <StudyMaterialView
-                material={getStudyMaterialByTopic(currentTopicObj)}
+                material={getStudyMaterial(currentTopicObj)}
                 isDarkMode={isDarkMode}
+                isLoggedIn={isLoggedIn}
+                isCustomized={hasCustomStudyMaterial(currentTopicObj.id)}
+                onSaveMaterial={updateStudyMaterial}
+                onResetMaterial={resetStudyMaterial}
                 onClose={() => setShowQuizStudyMaterial(false)}
               />
             </div>
@@ -583,6 +612,7 @@ const App: React.FC = () => {
               onClearSelection={handleClearSelection}
               questions={questions}
               topics={topics}
+              disciplines={disciplines}
             />
           ) : (
             <Login onLogin={handleLogin} isDarkMode={isDarkMode} />
@@ -599,12 +629,19 @@ const App: React.FC = () => {
               onAddQuestion={addQuestion}
               onUpdateQuestion={updateQuestion}
               onDeleteQuestion={deleteQuestion}
+              onImportQuestions={importQuestions}
               onAddTopic={addTopic}
               onUpdateTopic={updateTopic}
               onDeleteTopic={deleteTopic}
               onAddDiscipline={addDiscipline}
               onUpdateDiscipline={updateDiscipline}
               onDeleteDiscipline={deleteDiscipline}
+              getStudyMaterial={getStudyMaterial}
+              onUpdateStudyMaterial={updateStudyMaterial}
+              onResetStudyMaterial={resetStudyMaterial}
+              onImportStudyMaterials={importStudyMaterials}
+              hasCustomStudyMaterial={hasCustomStudyMaterial}
+              customMaterials={customMaterials}
             />
           ) : (
             <Login onLogin={handleLogin} isDarkMode={isDarkMode} />

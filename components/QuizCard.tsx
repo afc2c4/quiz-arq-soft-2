@@ -141,7 +141,7 @@ const QuizCard: React.FC<QuizCardProps> = ({
 
       {/* Question Header */}
       <div className="mb-6">
-        <h2 className={`text-xl md:text-2xl font-bold leading-tight ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>
+        <h2 className={`text-xl md:text-2xl font-bold leading-tight ${isDarkMode ? 'text-white' : 'text-slate-950'}`}>
           {question.question}
         </h2>
       </div>
@@ -155,25 +155,25 @@ const QuizCard: React.FC<QuizCardProps> = ({
             if (index === question.correctAnswer) {
               optionStyles += isDarkMode 
                 ? "border-green-600 bg-green-900/20 text-green-400 font-semibold" 
-                : "border-green-500 bg-green-50 text-green-900 font-semibold";
+                : "border-green-500 bg-green-50 text-green-950 font-bold";
             } else if (index === selectedOption) {
               optionStyles += isDarkMode
                 ? "border-red-600 bg-red-900/20 text-red-400"
-                : "border-red-500 bg-red-50 text-red-900";
+                : "border-red-500 bg-red-50 text-red-950 font-semibold";
             } else {
               optionStyles += isDarkMode
-                ? "border-slate-700 opacity-40"
-                : "border-gray-100 opacity-50";
+                ? "border-slate-700 opacity-40 text-slate-400"
+                : "border-gray-200 opacity-50 text-gray-500";
             }
           } else {
             if (selectedOption === index) {
               optionStyles += isDarkMode
-                ? "border-blue-500 bg-blue-900/30 text-blue-200 shadow-md"
-                : "border-blue-500 bg-blue-50 text-blue-900 shadow-md";
+                ? "border-blue-500 bg-blue-900/30 text-blue-200 shadow-md font-semibold"
+                : "border-blue-500 bg-blue-50 text-blue-950 shadow-md font-semibold";
             } else {
               optionStyles += isDarkMode
-                ? "border-slate-700 hover:border-blue-500/50 hover:bg-slate-700/50"
-                : "border-gray-100 hover:border-blue-200 hover:bg-gray-50";
+                ? "border-slate-700 hover:border-blue-500/50 hover:bg-slate-700/50 text-slate-200"
+                : "border-gray-200 hover:border-blue-300 hover:bg-gray-50 text-slate-900 font-medium";
             }
           }
 
@@ -216,11 +216,11 @@ const QuizCard: React.FC<QuizCardProps> = ({
       {/* Explanation Box */}
       {showCorrect && (
         <div className={`mt-6 p-4 rounded-xl border animate-in zoom-in duration-300
-          ${isDarkMode ? 'bg-blue-900/20 border-blue-900/50' : 'bg-blue-50 border-blue-100'}`}>
-          <h4 className={`font-bold flex items-center mb-1 ${isDarkMode ? 'text-blue-300' : 'text-blue-800'}`}>
+          ${isDarkMode ? 'bg-blue-900/20 border-blue-900/50' : 'bg-blue-50/90 border-blue-200 shadow-sm'}`}>
+          <h4 className={`font-bold flex items-center mb-1 ${isDarkMode ? 'text-blue-300' : 'text-blue-900'}`}>
             <i className="fas fa-info-circle mr-2"></i> Explicação:
           </h4>
-          <p className={`text-sm md:text-base leading-relaxed ${isDarkMode ? 'text-slate-300' : 'text-blue-700'}`}>
+          <p className={`text-sm md:text-base leading-relaxed ${isDarkMode ? 'text-slate-300' : 'text-slate-950 font-medium'}`}>
             {question.explanation}
           </p>
         </div>

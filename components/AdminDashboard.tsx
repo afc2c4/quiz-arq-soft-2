@@ -21,6 +21,7 @@ interface AdminDashboardProps {
   getStudyMaterial?: (topic: Topic) => StudyMaterial;
   onUpdateStudyMaterial?: (material: StudyMaterial) => void;
   onResetStudyMaterial?: (topicId: string) => void;
+  onClearAllStudyMaterials?: () => void;
   onImportStudyMaterials?: (materials: Record<string, StudyMaterial>) => void;
   hasCustomStudyMaterial?: (topicId: string) => boolean;
   customMaterials?: Record<string, StudyMaterial>;
@@ -53,6 +54,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   getStudyMaterial,
   onUpdateStudyMaterial,
   onResetStudyMaterial,
+  onClearAllStudyMaterials,
   onImportStudyMaterials,
   hasCustomStudyMaterial,
   customMaterials = {}
@@ -259,6 +261,22 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         onResetStudyMaterial(topic.id);
         setConfirmModal(null);
         showToast(`Conteúdo do tópico "${topic.name}" restaurado para o padrão original.`);
+      }
+    });
+  };
+
+  const handleClearAllMaterials = () => {
+    if (!onClearAllStudyMaterials) return;
+    setConfirmModal({
+      isOpen: true,
+      title: 'Limpar Conteúdos Didáticos de Todos os Tópicos?',
+      message: 'Esta ação irá limpar todo o conteúdo didático e apostilas de todos os tópicos cadastrados, deixando-os em branco prontos para nova elaboração.',
+      confirmLabel: 'Sim, Limpar Todos',
+      isDanger: true,
+      onConfirm: () => {
+        onClearAllStudyMaterials();
+        setConfirmModal(null);
+        showToast('Todos os conteúdos didáticos foram limpos com sucesso.');
       }
     });
   };
@@ -604,8 +622,23 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           </p>
         </div>
 
-        {/* Ações de Backup Global */}
+        {/* Ações de Backup e Gestão Global */}
         <div className="flex items-center gap-2">
+          {onClearAllStudyMaterials && (
+            <button
+              type="button"
+              onClick={handleClearAllMaterials}
+              className={`px-3 py-2 rounded-xl text-xs font-bold border transition-all flex items-center gap-2 ${
+                isDarkMode 
+                  ? 'bg-rose-950/30 text-rose-300 border-rose-900/50 hover:bg-rose-900/40' 
+                  : 'bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100'
+              }`}
+              title="Limpar todos os conteúdos didáticos de cada tópico"
+            >
+              <i className="fas fa-eraser text-rose-500"></i>
+              <span>Limpar Conteúdos Didáticos</span>
+            </button>
+          )}
           <button
             type="button"
             onClick={() => disciplineBackupInputRef.current?.click()}

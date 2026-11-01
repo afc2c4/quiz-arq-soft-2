@@ -24,10 +24,17 @@ const ExamBuilder: React.FC<ExamBuilderProps> = ({
   topics,
   disciplines
 }) => {
-  const [selectedDisciplineId, setSelectedDisciplineId] = useState<string | 'Todas'>('Todas');
+  const [selectedDisciplineId, setSelectedDisciplineId] = useState<string>(() => disciplines[0]?.id || '');
   const [filterTopicId, setFilterTopicId] = useState<string | 'Todos'>('Todos');
   const [showPreview, setShowPreview] = useState(false);
   
+  // Garantir que uma disciplina válida esteja sempre selecionada
+  React.useEffect(() => {
+    if ((!selectedDisciplineId || !disciplines.some(d => d.id === selectedDisciplineId)) && disciplines.length > 0) {
+      setSelectedDisciplineId(disciplines[0].id);
+    }
+  }, [disciplines, selectedDisciplineId]);
+
   // 3 versões de provas solicitadas: Avaliação, Segunda Chamada, Final
   const [activeExamTab, setActiveExamTab] = useState<'avaliacao' | 'segundaChamada' | 'final'>('avaliacao');
   const [examVersions, setExamVersions] = useState<{
@@ -45,23 +52,23 @@ const ExamBuilder: React.FC<ExamBuilderProps> = ({
 
   // Tópicos filtrados pela disciplina selecionada
   const availableTopics = useMemo(() => {
-    if (selectedDisciplineId === 'Todas') {
-      return topics;
-    }
-    return topics.filter(t => t.disciplineId === selectedDisciplineId);
-  }, [topics, selectedDisciplineId]);
+    const currentId = selectedDisciplineId || disciplines[0]?.id;
+    if (!currentId) return topics;
+    return topics.filter(t => t.disciplineId === currentId);
+  }, [topics, disciplines, selectedDisciplineId]);
 
-  const handleSelectDiscipline = (discId: string | 'Todas') => {
+  const handleSelectDiscipline = (discId: string) => {
     setSelectedDisciplineId(discId);
     setFilterTopicId('Todos');
   };
 
   const filteredQuestions = useMemo(() => {
+    const currentId = selectedDisciplineId || disciplines[0]?.id;
     return questions.filter(q => {
       const topic = topics.find(t => t.id === q.topicId);
       if (!topic) return false;
 
-      if (selectedDisciplineId !== 'Todas' && topic.disciplineId !== selectedDisciplineId) {
+      if (currentId && topic.disciplineId !== currentId) {
         return false;
       }
 
@@ -71,7 +78,7 @@ const ExamBuilder: React.FC<ExamBuilderProps> = ({
 
       return true;
     });
-  }, [questions, topics, selectedDisciplineId, filterTopicId]);
+  }, [questions, topics, disciplines, selectedDisciplineId, filterTopicId]);
 
   const selectAllFiltered = () => {
     const filteredIds = filteredQuestions.map(q => q.id);
@@ -202,31 +209,23 @@ const ExamBuilder: React.FC<ExamBuilderProps> = ({
           1. Filtrar por Disciplina
         </label>
         <div className="flex flex-wrap gap-2">
-          <button
-            onClick={() => handleSelectDiscipline('Todas')}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all border flex items-center gap-2
-              ${selectedDisciplineId === 'Todas'
-                ? 'bg-blue-600 border-blue-600 text-white shadow-md'
-                : (isDarkMode ? 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700' : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50')
-              }`}
-          >
-            <i className="fas fa-layer-group"></i>
-            Todas as Disciplinas
-          </button>
-          {disciplines.map(d => (
-            <button
-              key={d.id}
-              onClick={() => handleSelectDiscipline(d.id)}
-              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all border flex items-center gap-2
-                ${selectedDisciplineId === d.id
-                  ? 'bg-blue-600 border-blue-600 text-white shadow-md'
-                  : (isDarkMode ? 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700' : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50')
-                }`}
-            >
-              <i className="fas fa-book"></i>
-              {d.name}
-            </button>
-          ))}
+          {disciplines.map(d => {
+            const isSelected = (selectedDisciplineId || disciplines[0]?.id) === d.id;
+            return (
+              <button
+                key={d.id}
+                onClick={() => handleSelectDiscipline(d.id)}
+                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all border flex items-center gap-2
+                  ${isSelected
+                    ? 'bg-blue-600 border-blue-600 text-white shadow-md'
+                    : (isDarkMode ? 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700' : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50')
+                  }`}
+              >
+                <i className="fas fa-book"></i>
+                {d.name}
+              </button>
+            );
+          })}
         </div>
       </div>
 

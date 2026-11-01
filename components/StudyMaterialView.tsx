@@ -129,22 +129,22 @@ export const StudyMaterialContent: React.FC<StudyMaterialContentProps> = ({
       <h2 className="text-lg md:text-xl font-bold mt-6 mb-3 text-blue-700 dark:text-blue-400 flex items-center gap-2" {...props} />
     ),
     h3: ({ ...props }: React.HTMLAttributes<HTMLHeadingElement>) => (
-      <h3 className="text-base md:text-lg font-bold mt-5 mb-2.5 text-slate-950 dark:text-white flex items-center gap-2" {...props} />
+      <h3 className="text-base md:text-lg font-bold mt-5 mb-2.5 text-black dark:text-white flex items-center gap-2" {...props} />
     ),
     h4: ({ ...props }: React.HTMLAttributes<HTMLHeadingElement>) => (
       <h4 className="text-sm md:text-base font-bold mt-4 mb-2 text-indigo-700 dark:text-indigo-400" {...props} />
     ),
     p: ({ ...props }: React.HTMLAttributes<HTMLParagraphElement>) => (
-      <p className="text-sm md:text-base leading-relaxed my-3 text-slate-950 dark:text-slate-300 font-medium" {...props} />
+      <p className="text-sm md:text-base leading-relaxed my-3 text-black dark:text-slate-200 font-medium" {...props} />
     ),
     ul: ({ ...props }: React.HTMLAttributes<HTMLUListElement>) => (
-      <ul className="list-disc pl-5 my-3 space-y-2 text-sm md:text-base text-slate-950 dark:text-slate-300 font-medium" {...props} />
+      <ul className="list-disc pl-5 my-3 space-y-2 text-sm md:text-base text-black dark:text-slate-200 font-medium" {...props} />
     ),
     ol: ({ ...props }: React.HTMLAttributes<HTMLOListElement>) => (
-      <ol className="list-decimal pl-5 my-3 space-y-2 text-sm md:text-base text-slate-950 dark:text-slate-300 font-medium" {...props} />
+      <ol className="list-decimal pl-5 my-3 space-y-2 text-sm md:text-base text-black dark:text-slate-200 font-medium" {...props} />
     ),
     li: ({ ...props }: React.HTMLAttributes<HTMLLIElement>) => (
-      <li className="leading-relaxed pl-1 text-slate-950 dark:text-slate-300 font-medium" {...props} />
+      <li className="leading-relaxed pl-1 text-black dark:text-slate-200 font-medium" {...props} />
     ),
     blockquote: ({ ...props }: React.HTMLAttributes<HTMLQuoteElement>) => (
       <blockquote className={`border-l-4 border-amber-500 pl-4 py-3 my-4 italic rounded-r-xl text-sm md:text-base ${
@@ -415,7 +415,7 @@ export const StudyMaterialContent: React.FC<StudyMaterialContentProps> = ({
                     Visão Geral
                   </span>
                 </div>
-                <div className="space-y-3.5 text-sm md:text-base leading-relaxed text-slate-900 dark:text-slate-300 font-normal">
+                <div className={`space-y-3.5 text-sm md:text-base leading-relaxed font-normal ${isDarkMode ? 'text-slate-200' : 'text-black'}`}>
                   {introParagraphs.map((paragraph, idx) => (
                     <p key={idx} className="leading-relaxed">
                       {paragraph}
@@ -444,7 +444,7 @@ export const StudyMaterialContent: React.FC<StudyMaterialContentProps> = ({
                   </span>
                 </div>
                 {theoreticalDesc && (
-                  <p className="text-sm md:text-base leading-relaxed text-slate-900 dark:text-slate-300 mb-4 whitespace-pre-line">
+                  <p className={`text-sm md:text-base leading-relaxed mb-4 whitespace-pre-line ${isDarkMode ? 'text-slate-200' : 'text-black'}`}>
                     {theoreticalDesc}
                   </p>
                 )}
@@ -543,7 +543,7 @@ export const StudyMaterialContent: React.FC<StudyMaterialContentProps> = ({
                           <span className="font-bold text-amber-500 dark:text-amber-400 flex items-center gap-1 text-xs uppercase tracking-wider">
                             <i className="fas fa-comment-dots"></i> Raciocínio Falado (Ao Vivo):
                           </span>
-                          <p className={`italic ${isDarkMode ? 'text-slate-300' : 'text-gray-700'}`}>
+                          <p className={`italic ${isDarkMode ? 'text-slate-200' : 'text-black font-medium'}`}>
                             "{item.spokenReasoning}"
                           </p>
                         </div>
@@ -551,7 +551,7 @@ export const StudyMaterialContent: React.FC<StudyMaterialContentProps> = ({
                           <span className="font-bold text-cyan-500 dark:text-cyan-400 flex items-center gap-1 text-xs uppercase tracking-wider">
                             <i className="fas fa-microchip"></i> Efeito de Borda / Escopo:
                           </span>
-                          <p className={isDarkMode ? 'text-slate-300' : 'text-gray-700'}>
+                          <p className={isDarkMode ? 'text-slate-200' : 'text-black font-medium'}>
                             {item.sideEffect}
                           </p>
                         </div>

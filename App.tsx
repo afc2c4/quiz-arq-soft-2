@@ -74,6 +74,7 @@ const App: React.FC = () => {
     getStudyMaterial,
     updateStudyMaterial,
     resetStudyMaterial,
+    clearAllStudyMaterials,
     hasCustomStudyMaterial,
     addQuestion, 
     updateQuestion, 
@@ -111,6 +112,14 @@ const App: React.FC = () => {
   const [timeLimit, setTimeLimit] = useState(30);
 
   const toggleDarkMode = () => setIsDarkMode(!isDarkMode);
+
+  React.useEffect(() => {
+    if (isDarkMode) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [isDarkMode]);
 
   const currentQuestion = shuffledQuestions[state.currentQuestionIndex];
 
@@ -639,6 +648,7 @@ const App: React.FC = () => {
               getStudyMaterial={getStudyMaterial}
               onUpdateStudyMaterial={updateStudyMaterial}
               onResetStudyMaterial={resetStudyMaterial}
+              onClearAllStudyMaterials={clearAllStudyMaterials}
               onImportStudyMaterials={importStudyMaterials}
               hasCustomStudyMaterial={hasCustomStudyMaterial}
               customMaterials={customMaterials}

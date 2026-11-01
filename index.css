@@ -1,0 +1,30 @@
+/* Mestre Digital - Estilos Globais e Tipografia com Alto Contraste */
+
+/* Garantir que textos nas apostilas e no preview de Markdown sejam preto absoluto no modo claro */
+.markdown-body {
+  color: #000000;
+}
+
+.markdown-body p,
+.markdown-body li,
+.markdown-body ul,
+.markdown-body ol,
+.markdown-body td {
+  color: #000000;
+}
+
+/* Modo escuro para markdown */
+html.dark .markdown-body,
+.dark .markdown-body,
+html.dark .markdown-body p,
+.dark .markdown-body p,
+html.dark .markdown-body li,
+.dark .markdown-body li,
+html.dark .markdown-body ul,
+.dark .markdown-body ul,
+html.dark .markdown-body ol,
+.dark .markdown-body ol,
+html.dark .markdown-body td,
+.dark .markdown-body td {
+  color: #e2e8f0;
+}

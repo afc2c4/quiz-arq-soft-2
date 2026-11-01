@@ -8,6 +8,7 @@ const QUESTIONS_KEY = 'mestre_digital_questions';
 const TOPICS_KEY = 'mestre_digital_topics';
 const DISCIPLINES_KEY = 'mestre_digital_disciplines';
 const STUDY_MATERIALS_KEY = 'mestre_digital_study_materials';
+const STUDY_MATERIALS_CLEARED_FLAG = 'mestre_digital_materials_cleared_all_v1';
 const MIGRATION_DONE_KEY = 'mestre_digital_migrated_v3';
 
 export const useDatabase = () => {
@@ -20,25 +21,22 @@ export const useDatabase = () => {
     const storedQuestions = localStorage.getItem(QUESTIONS_KEY);
     const storedTopics = localStorage.getItem(TOPICS_KEY);
     const storedDisciplines = localStorage.getItem(DISCIPLINES_KEY);
-    const storedMaterials = localStorage.getItem(STUDY_MATERIALS_KEY);
-
-    if (storedMaterials) {
-      try {
-        const parsed = JSON.parse(storedMaterials);
-        // Limpa materiais que tenham sido gerados com o mock genérico antigo (processTopicLogic)
-        let changed = false;
-        Object.keys(parsed).forEach(k => {
-          if (parsed[k]?.codeSnippet?.code?.includes('processTopicLogic')) {
-            parsed[k] = createEmptyStudyMaterial({ id: k, name: parsed[k].topicName || 'Tópico', disciplineId: '' });
-            changed = true;
-          }
-        });
-        if (changed) {
-          localStorage.setItem(STUDY_MATERIALS_KEY, JSON.stringify(parsed));
+    
+    // Limpeza mandatória de todos os conteúdos didáticos pré-existentes
+    const hasClearedMaterials = localStorage.getItem(STUDY_MATERIALS_CLEARED_FLAG);
+    if (!hasClearedMaterials) {
+      localStorage.removeItem(STUDY_MATERIALS_KEY);
+      localStorage.setItem(STUDY_MATERIALS_CLEARED_FLAG, 'true');
+      setCustomMaterials({});
+    } else {
+      const storedMaterials = localStorage.getItem(STUDY_MATERIALS_KEY);
+      if (storedMaterials) {
+        try {
+          const parsed = JSON.parse(storedMaterials);
+          setCustomMaterials(parsed);
+        } catch (e) {
+          console.error('Erro ao ler materiais customizados do localStorage:', e);
         }
-        setCustomMaterials(parsed);
-      } catch (e) {
-        console.error('Erro ao ler materiais customizados do localStorage:', e);
       }
     }
 
@@ -180,6 +178,11 @@ export const useDatabase = () => {
     saveCustomMaterials(updated);
   };
 
+  const clearAllStudyMaterials = () => {
+    localStorage.removeItem(STUDY_MATERIALS_KEY);
+    setCustomMaterials({});
+  };
+
   const getStudyMaterial = (topic: Topic): StudyMaterial => {
     if (customMaterials[topic.id]) {
       return customMaterials[topic.id];
@@ -199,6 +202,7 @@ export const useDatabase = () => {
     getStudyMaterial,
     updateStudyMaterial,
     resetStudyMaterial,
+    clearAllStudyMaterials,
     hasCustomStudyMaterial,
     addQuestion,
     updateQuestion,

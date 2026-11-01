@@ -886,7 +886,7 @@ export function executeDemonstration() {
                       className={`w-full p-4 font-mono text-xs md:text-sm rounded-2xl border outline-none focus:ring-2 focus:ring-blue-500 transition-all leading-relaxed ${
                         isDarkMode
                           ? 'bg-slate-950 border-slate-700 text-slate-100 placeholder-slate-600'
-                          : 'bg-white border-gray-300 text-gray-900 placeholder-gray-400'
+                          : 'bg-white border-gray-300 text-black placeholder-gray-400'
                       }`}
                     />
                   </div>
@@ -905,22 +905,26 @@ export function executeDemonstration() {
                     </div>
 
                     <div className={`p-6 rounded-2xl border min-h-[480px] max-h-[560px] overflow-y-auto ${
-                      isDarkMode ? 'bg-slate-900/80 border-slate-700 text-slate-200' : 'bg-slate-50/90 border-gray-200 text-gray-900'
+                      isDarkMode ? 'bg-slate-900/80 border-slate-700 text-slate-200' : 'bg-white border-gray-200 text-black'
                     }`}>
                       {markdownContent.trim() ? (
-                        <div className="markdown-body space-y-3">
+                        <div className={`markdown-body space-y-3 ${isDarkMode ? 'text-slate-200' : 'text-black'}`}>
                           <Markdown
                             remarkPlugins={[remarkGfm]}
                             components={{
-                              h1: ({ ...props }) => <h1 className="text-xl font-bold my-3 text-blue-600 dark:text-blue-400 border-b pb-2 border-gray-200 dark:border-slate-700" {...props} />,
-                              h2: ({ ...props }) => <h2 className="text-lg font-bold mt-5 mb-2 text-blue-600 dark:text-blue-400 flex items-center gap-2" {...props} />,
-                              h3: ({ ...props }) => <h3 className="text-base font-bold mt-4 mb-2 text-slate-900 dark:text-white" {...props} />,
-                              p: ({ ...props }) => <p className="text-xs md:text-sm leading-relaxed my-2 text-slate-900 dark:text-slate-300" {...props} />,
-                              ul: ({ ...props }) => <ul className="list-disc pl-5 my-2 space-y-1 text-xs md:text-sm text-slate-700 dark:text-slate-300" {...props} />,
-                              ol: ({ ...props }) => <ol className="list-decimal pl-5 my-2 space-y-1 text-xs md:text-sm text-slate-700 dark:text-slate-300" {...props} />,
+                              h1: ({ ...props }) => <h1 className="text-xl font-bold my-3 text-blue-700 dark:text-blue-400 border-b pb-2 border-gray-200 dark:border-slate-700" {...props} />,
+                              h2: ({ ...props }) => <h2 className="text-lg font-bold mt-5 mb-2 text-blue-700 dark:text-blue-400 flex items-center gap-2" {...props} />,
+                              h3: ({ ...props }) => <h3 className={`text-base font-bold mt-4 mb-2 ${isDarkMode ? 'text-white' : 'text-black'}`} {...props} />,
+                              h4: ({ ...props }) => <h4 className={`text-sm font-bold mt-3 mb-1.5 ${isDarkMode ? 'text-indigo-400' : 'text-indigo-900'}`} {...props} />,
+                              p: ({ ...props }) => <p className={`text-xs md:text-sm leading-relaxed my-2 font-normal ${isDarkMode ? 'text-slate-200' : 'text-black'}`} {...props} />,
+                              ul: ({ ...props }) => <ul className={`list-disc pl-5 my-2 space-y-1 text-xs md:text-sm font-normal ${isDarkMode ? 'text-slate-200' : 'text-black'}`} {...props} />,
+                              ol: ({ ...props }) => <ol className={`list-decimal pl-5 my-2 space-y-1 text-xs md:text-sm font-normal ${isDarkMode ? 'text-slate-200' : 'text-black'}`} {...props} />,
+                              li: ({ ...props }) => <li className={`leading-relaxed ${isDarkMode ? 'text-slate-200' : 'text-black'}`} {...props} />,
+                              strong: ({ ...props }) => <strong className={`font-bold ${isDarkMode ? 'text-white' : 'text-black'}`} {...props} />,
+                              span: ({ ...props }) => <span className={isDarkMode ? 'text-slate-200' : 'text-black'} {...props} />,
                               blockquote: ({ ...props }) => (
                                 <blockquote className={`border-l-4 border-amber-500 pl-3 py-2 my-3 italic rounded-r-lg text-xs md:text-sm ${
-                                  isDarkMode ? 'bg-amber-950/20 border-amber-700 text-amber-200' : 'bg-amber-50 border-amber-400 text-amber-900'
+                                  isDarkMode ? 'bg-amber-950/20 border-amber-700 text-amber-200' : 'bg-amber-50 border-amber-500 text-black'
                                 }`} {...props} />
                               ),
                               code: ({ className, children, ...props }) => {
@@ -946,7 +950,7 @@ export function executeDemonstration() {
                                   );
                                 }
                                 return (
-                                  <code className="px-1.5 py-0.5 rounded font-mono text-xs bg-slate-200 dark:bg-slate-800 text-cyan-700 dark:text-cyan-300 font-semibold" {...props}>
+                                  <code className="px-1.5 py-0.5 rounded font-mono text-xs bg-slate-200 dark:bg-slate-800 text-cyan-800 dark:text-cyan-300 font-semibold" {...props}>
                                     {children}
                                   </code>
                                 );
@@ -956,9 +960,9 @@ export function executeDemonstration() {
                                   <table className="w-full text-left text-xs border-collapse" {...props} />
                                 </div>
                               ),
-                              thead: ({ ...props }) => <thead className="bg-gray-100 dark:bg-slate-800 font-bold uppercase text-[10px]" {...props} />,
-                              th: ({ ...props }) => <th className="px-3 py-2 border-b border-gray-200 dark:border-slate-700" {...props} />,
-                              td: ({ ...props }) => <td className="px-3 py-2 border-b border-gray-100 dark:border-slate-800/60" {...props} />,
+                              thead: ({ ...props }) => <thead className={`font-bold uppercase text-[10px] ${isDarkMode ? 'bg-slate-800 text-slate-200' : 'bg-gray-100 text-black'}`} {...props} />,
+                              th: ({ ...props }) => <th className="px-3 py-2 border-b border-gray-200 dark:border-slate-700 font-bold" {...props} />,
+                              td: ({ ...props }) => <td className={`px-3 py-2 border-b border-gray-100 dark:border-slate-800/60 ${isDarkMode ? 'text-slate-200' : 'text-black'}`} {...props} />,
                             }}
                           >
                             {markdownContent}

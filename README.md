@@ -93,3 +93,41 @@ mestre-dos-bancos-ii/
 ├── package.json                   # Dependências do projeto
 └── README.md                      # Documentação do projeto
 ```
+
+---
+
+## ▶️ Como executar o projeto
+
+### Pré-requisitos
+
+- [Node.js](https://nodejs.org/) 20 ou superior, com o npm (incluído na instalação do Node.js).
+- Git para clonar o repositório.
+
+### Instalação e execução
+
+No terminal, clone o repositório e entre na pasta do projeto:
+
+```bash
+git clone https://github.com/afc2c4/quiz-arq-soft-2.git
+cd quiz-arq-soft-2
+```
+
+Instale as dependências e inicie o servidor de desenvolvimento:
+
+```bash
+npm install
+npm run dev
+```
+
+Abra no navegador o endereço exibido no terminal (por padrão, `http://localhost:3000`). Para encerrar o servidor, pressione `Ctrl+C` no terminal.
+
+Não é necessário configurar variáveis de ambiente para executar as funcionalidades principais. A exportação de provas para o Google Docs depende de uma conta Google e da configuração válida do Firebase e do login Google para o projeto.
+
+### Build de produção
+
+Para gerar os arquivos otimizados de produção e visualizar o resultado localmente:
+
+```bash
+npm run build
+npm run preview
+```

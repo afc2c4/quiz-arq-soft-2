@@ -7,6 +7,7 @@ import AdminDashboard from './components/AdminDashboard';
 import Login from './components/Login';
 import StudyMaterialView from './components/StudyMaterialView';
 import { useDatabase } from './hooks/useDatabase';
+import { checkSession, loginAdmin, logoutAdmin } from './src/services/authService';
 import { Topic, QuizState, Question } from './types';
 
 export const shuffleArray = <T,>(array: T[]): T[] => {
@@ -121,6 +122,18 @@ const App: React.FC = () => {
     }
   }, [isDarkMode]);
 
+  React.useEffect(() => {
+    let active = true;
+    checkSession().then((authenticated) => {
+      if (active && authenticated) {
+        setIsLoggedIn(true);
+      }
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
+
   const currentQuestion = shuffledQuestions[state.currentQuestionIndex];
 
   const handleTimeout = () => {
@@ -227,16 +240,24 @@ const App: React.FC = () => {
     setSelectedForExam([]);
   };
 
-  const handleLogin = (password: string) => {
-    if (password === 'senha123') {
+  const handleLogin = async (password: string): Promise<{ ok: boolean; error?: string }> => {
+    const result = await loginAdmin(password);
+    if (result.ok) {
       setIsLoggedIn(true);
       setView('admin');
     }
+    return result;
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await logoutAdmin();
     setIsLoggedIn(false);
     setView('quiz');
+  };
+
+  const handleSessionExpired = () => {
+    setIsLoggedIn(false);
+    setView('login');
   };
 
   const renderTopicSelection = () => {
@@ -652,6 +673,7 @@ const App: React.FC = () => {
               onImportStudyMaterials={importStudyMaterials}
               hasCustomStudyMaterial={hasCustomStudyMaterial}
               customMaterials={customMaterials}
+              onSessionExpired={handleSessionExpired}
             />
           ) : (
             <Login onLogin={handleLogin} isDarkMode={isDarkMode} />

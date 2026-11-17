@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import mermaid from 'mermaid';
+import { sanitizeSvg } from '../src/utils/sanitize';
 
 interface MermaidBlockProps {
   chart: string;
@@ -7,7 +8,7 @@ interface MermaidBlockProps {
 
 const sanitizeMermaidChart = (rawChart: string): string => {
   // Automatically quote node labels containing parentheses inside brackets if not already quoted
-  let cleaned = rawChart.replace(/([A-Za-z0-9_]+)\s*\[([^\]"]*\([^\]"]*\)[^\]"]*)\]/g, (match, nodeId, innerText) => {
+  const cleaned = rawChart.replace(/([A-Za-z0-9_]+)\s*\[([^\]"]*\([^\]"]*\)[^\]"]*)\]/g, (_match, nodeId, innerText) => {
     return `${nodeId}["${innerText.replace(/"/g, '\\"')}"]`;
   });
   return cleaned;
@@ -26,7 +27,10 @@ export const MermaidBlock: React.FC<MermaidBlockProps> = ({ chart }) => {
     mermaid.initialize({
       startOnLoad: false,
       theme: 'neutral',
-      securityLevel: 'loose',
+      securityLevel: 'strict',
+      flowchart: {
+        htmlLabels: false,
+      },
     });
 
     const validateAndRender = async () => {
@@ -40,8 +44,9 @@ export const MermaidBlock: React.FC<MermaidBlockProps> = ({ chart }) => {
 
         const id1 = 'mermaid-' + Math.random().toString(36).substring(2, 9);
         const { svg: renderedSvg } = await mermaid.render(id1, sanitized.trim());
-        setSvg(renderedSvg);
-        setModalSvg(renderedSvg);
+        const cleanSvg = sanitizeSvg(renderedSvg);
+        setSvg(cleanSvg);
+        setModalSvg(cleanSvg);
       } catch (err: any) {
         console.error('Mermaid syntax / render error caught:', err);
         const friendlyMessage = err?.message || 'Erro desconhecido ao processar sintaxe do Mermaid.';

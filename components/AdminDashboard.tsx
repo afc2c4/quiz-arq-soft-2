@@ -2,6 +2,7 @@ import React, { useState, useRef } from 'react';
 import { Question, Topic, Discipline, StudyMaterial } from '../types';
 import { StudyMaterialEditor } from './StudyMaterialEditor';
 import { StudyMaterialContent } from './StudyMaterialView';
+import { generateQuestionsViaApi, SessionExpiredError } from '../src/services/geminiClient';
 
 interface AdminDashboardProps {
   isDarkMode: boolean;
@@ -25,6 +26,7 @@ interface AdminDashboardProps {
   onImportStudyMaterials?: (materials: Record<string, StudyMaterial>) => void;
   hasCustomStudyMaterial?: (topicId: string) => boolean;
   customMaterials?: Record<string, StudyMaterial>;
+  onSessionExpired?: () => void;
 }
 
 interface ConfirmModalState {
@@ -57,7 +59,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   onClearAllStudyMaterials,
   onImportStudyMaterials,
   hasCustomStudyMaterial,
-  customMaterials = {}
+  customMaterials = {},
+  onSessionExpired
 }) => {
   // Navegação: Nível 1 (null) -> Nível 2 (selectedDisciplineId) -> Nível 3 (selectedTopicId)
   const [selectedDisciplineId, setSelectedDisciplineId] = useState<string | null>(null);
@@ -94,6 +97,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     correctAnswer: 0,
     explanation: ''
   });
+
+  // Estados de Geração de Questões via Gemini (Back-end)
+  const [aiQuestionCount, setAiQuestionCount] = useState<number>(3);
+  const [aiQuestionFocus, setAiQuestionFocus] = useState<string>('');
+  const [isGeneratingQuestions, setIsGeneratingQuestions] = useState<boolean>(false);
+  const [aiQuestionError, setAiQuestionError] = useState<string | null>(null);
 
   // Referências para inputs de arquivos JSON
   const materialFileInputRef = useRef<HTMLInputElement>(null);
@@ -319,6 +328,46 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     });
   };
 
+  const handleGenerateQuestionsWithAI = async (topic: Topic, disciplineName: string) => {
+    setAiQuestionError(null);
+    setIsGeneratingQuestions(true);
+    try {
+      const generatedList = await generateQuestionsViaApi({
+        disciplineName,
+        topicName: topic.name,
+        count: aiQuestionCount,
+        focus: aiQuestionFocus.trim(),
+      });
+
+      const baseTimestamp = Date.now();
+      const formatted: Question[] = generatedList.map((item, idx) => ({
+        id: `q-ai-${baseTimestamp}-${idx}`,
+        topicId: topic.id,
+        question: item.question,
+        options: item.options,
+        correctAnswer: item.correctAnswer,
+        explanation: item.explanation,
+      }));
+
+      if (onImportQuestions) {
+        onImportQuestions(formatted);
+      } else {
+        formatted.forEach((q) => onAddQuestion(q));
+      }
+
+      setAiQuestionFocus('');
+      showToast(`${formatted.length} questão(ões) gerada(s) com sucesso via Gemini!`);
+    } catch (err) {
+      if (err instanceof SessionExpiredError) {
+        onSessionExpired?.();
+        return;
+      }
+      setAiQuestionError(err instanceof Error ? err.message : 'Erro ao gerar questões via Gemini.');
+    } finally {
+      setIsGeneratingQuestions(false);
+    }
+  };
+
   const handleStartEditQuestion = (q: Question) => {
     setEditingQuestion(q);
     setQuestionForm({
@@ -500,8 +549,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
           <StudyMaterialEditor
             initialMaterial={materialToEdit}
+            disciplineName={disciplines.find(d => d.id === topicToEdit.disciplineId)?.name || 'Desenvolvimento de Sistemas'}
             isDarkMode={isDarkMode}
             isCustomized={isCustom}
+            onSessionExpired={onSessionExpired}
             onSave={(updated) => {
               if (onUpdateStudyMaterial) {
                 onUpdateStudyMaterial(updated);
@@ -1395,6 +1446,78 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                           )}
                         </div>
                       </form>
+
+                      {/* Painel de Geração de Questões com Gemini (Back-end) */}
+                      <div className={`mt-6 pt-5 border-t ${isDarkMode ? 'border-slate-700' : 'border-gray-200'}`}>
+                        <div className="flex items-center justify-between mb-3">
+                          <h5 className={`text-sm font-extrabold flex items-center gap-2 ${isDarkMode ? 'text-indigo-300' : 'text-indigo-700'}`}>
+                            <i className="fas fa-robot"></i>
+                            <span>Gerar Questões com Gemini</span>
+                          </h5>
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${
+                            isDarkMode ? 'bg-indigo-950 text-indigo-300' : 'bg-indigo-50 text-indigo-700'
+                          }`}>
+                            API Segura no Servidor
+                          </span>
+                        </div>
+
+                        <div className="space-y-3">
+                          <div className="flex items-center gap-3">
+                            <label className={`text-xs font-bold shrink-0 ${isDarkMode ? 'text-slate-300' : 'text-gray-700'}`}>
+                              Quantidade:
+                            </label>
+                            <select
+                              value={aiQuestionCount}
+                              onChange={(e) => setAiQuestionCount(Number(e.target.value))}
+                              disabled={isGeneratingQuestions}
+                              className={`px-3 py-1.5 text-xs font-bold rounded-xl border outline-none ${
+                                isDarkMode ? 'bg-slate-700 border-slate-600 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'
+                              }`}
+                            >
+                              <option value={1}>1 questão</option>
+                              <option value={3}>3 questões</option>
+                              <option value={5}>5 questões</option>
+                            </select>
+                          </div>
+
+                          <input
+                            type="text"
+                            value={aiQuestionFocus}
+                            onChange={(e) => setAiQuestionFocus(e.target.value)}
+                            disabled={isGeneratingQuestions}
+                            placeholder="Foco opcional (ex: cenários práticos, código, nível avançado)..."
+                            className={`w-full px-3 py-2 text-xs rounded-xl border outline-none ${
+                              isDarkMode
+                                ? 'bg-slate-700 border-slate-600 text-white placeholder-slate-400'
+                                : 'bg-gray-50 border-gray-200 text-gray-900 placeholder-gray-400'
+                            }`}
+                          />
+
+                          {aiQuestionError && (
+                            <div className="p-2.5 rounded-xl text-xs font-medium bg-red-100 border-l-4 border-red-500 text-red-700">
+                              <i className="fas fa-exclamation-triangle mr-1.5"></i>
+                              {aiQuestionError}
+                            </div>
+                          )}
+
+                          <button
+                            type="button"
+                            disabled={isGeneratingQuestions}
+                            onClick={() => handleGenerateQuestionsWithAI(activeTopic, activeDiscipline.name)}
+                            className="w-full py-2.5 px-4 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white shadow-md transition-all flex items-center justify-center gap-2"
+                          >
+                            {isGeneratingQuestions ? (
+                              <>
+                                <i className="fas fa-spinner fa-spin"></i> Gerando questões...
+                              </>
+                            ) : (
+                              <>
+                                <i className="fas fa-wand-magic-sparkles"></i> Gerar {aiQuestionCount} Questão(ões)
+                              </>
+                            )}
+                          </button>
+                        </div>
+                      </div>
                     </div>
 
                     {/* Lista de Questões do Tópico */}

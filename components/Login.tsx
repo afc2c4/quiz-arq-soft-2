@@ -1,21 +1,33 @@
-
 import React, { useState } from 'react';
 
 interface LoginProps {
-  onLogin: (password: string) => void;
+  onLogin: (password: string) => Promise<{ ok: boolean; error?: string }>;
   isDarkMode: boolean;
 }
 
 const Login: React.FC<LoginProps> = ({ onLogin, isDarkMode }) => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (password === 'senha123') {
-      onLogin(password);
-    } else {
-      setError('Senha incorreta. Tente novamente.');
+    if (!password.trim()) {
+      setError('Digite a senha de acesso.');
+      return;
+    }
+
+    setError('');
+    setIsSubmitting(true);
+    try {
+      const result = await onLogin(password);
+      if (!result.ok) {
+        setError(result.error || 'Senha incorreta. Tente novamente.');
+      }
+    } catch {
+      setError('Erro ao validar credenciais no servidor.');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -43,6 +55,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, isDarkMode }) => {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              disabled={isSubmitting}
               className={`w-full px-4 py-3 rounded-xl border-2 transition-all outline-none ${
                 isDarkMode 
                   ? 'bg-slate-700 border-slate-600 text-white focus:border-blue-500' 
@@ -61,9 +74,18 @@ const Login: React.FC<LoginProps> = ({ onLogin, isDarkMode }) => {
 
           <button
             type="submit"
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-black py-4 rounded-xl shadow-lg transition-all transform active:scale-95 flex items-center justify-center gap-2"
+            disabled={isSubmitting}
+            className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed text-white font-black py-4 rounded-xl shadow-lg transition-all transform active:scale-95 flex items-center justify-center gap-2"
           >
-            Entrar no Painel <i className="fas fa-sign-in-alt"></i>
+            {isSubmitting ? (
+              <>
+                <i className="fas fa-spinner fa-spin"></i> Verificando...
+              </>
+            ) : (
+              <>
+                Entrar no Painel <i className="fas fa-sign-in-alt"></i>
+              </>
+            )}
           </button>
         </form>
       </div>

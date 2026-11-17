@@ -4,6 +4,7 @@ import remarkGfm from 'remark-gfm';
 import { StudyMaterial } from '../types';
 import { StudyMaterialEditor } from './StudyMaterialEditor';
 import { MermaidBlock } from './MermaidBlock';
+import { getSafeUrl } from '../src/utils/sanitize';
 
 interface StudyMaterialViewProps {
   material: StudyMaterial;
@@ -204,17 +205,27 @@ export const StudyMaterialContent: React.FC<StudyMaterialContentProps> = ({
     del: ({ ...props }: React.HTMLAttributes<HTMLElement>) => (
       <del className="line-through text-slate-400" {...props} />
     ),
-    a: ({ href, children, ...props }: React.AnchorHTMLAttributes<HTMLAnchorElement>) => (
-      <a 
-        href={href} 
-        target="_blank" 
-        rel="noopener noreferrer" 
-        className="text-blue-500 hover:text-blue-600 underline font-semibold transition-colors" 
-        {...props}
-      >
-        {children} <i className="fas fa-external-link-alt text-[10px] ml-0.5"></i>
-      </a>
-    ),
+    a: ({ href, children, ...props }: React.AnchorHTMLAttributes<HTMLAnchorElement>) => {
+      const safeHref = getSafeUrl(href);
+      if (!safeHref) {
+        return (
+          <span className="text-rose-600 dark:text-rose-400 underline decoration-dotted" title="Link bloqueado por segurança">
+            {children}
+          </span>
+        );
+      }
+      return (
+        <a 
+          href={safeHref} 
+          target="_blank" 
+          rel="noopener noreferrer" 
+          className="text-blue-500 hover:text-blue-600 underline font-semibold transition-colors" 
+          {...props}
+        >
+          {children} <i className="fas fa-external-link-alt text-[10px] ml-0.5"></i>
+        </a>
+      );
+    },
     table: ({ ...props }: React.HTMLAttributes<HTMLTableElement>) => (
       <div className="my-5 overflow-x-auto rounded-xl border border-gray-200 dark:border-slate-700 shadow-sm">
         <table className="w-full text-left text-sm border-collapse" {...props} />

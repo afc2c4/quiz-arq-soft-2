@@ -3,24 +3,30 @@ import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { StudyMaterial, SyntaxDeconstruction, StudyMaterialTab } from '../types';
 import { MermaidBlock } from './MermaidBlock';
+import { getSafeUrl } from '../src/utils/sanitize';
+import { generateStudyMaterialViaApi, SessionExpiredError } from '../src/services/geminiClient';
 
 interface StudyMaterialEditorProps {
   initialMaterial: StudyMaterial;
+  disciplineName?: string;
   isDarkMode: boolean;
   isCustomized?: boolean;
   onSave: (updatedMaterial: StudyMaterial) => void;
   onCancel: () => void;
   onResetToDefault?: () => void;
+  onSessionExpired?: () => void;
   renderPreview: (previewMaterial: StudyMaterial) => React.ReactNode;
 }
 
 export const StudyMaterialEditor: React.FC<StudyMaterialEditorProps> = ({
   initialMaterial,
+  disciplineName = 'Desenvolvimento de Sistemas',
   isDarkMode,
   isCustomized = false,
   onSave,
   onCancel,
   onResetToDefault,
+  onSessionExpired,
   renderPreview
 }) => {
   // Nome do tópico
@@ -81,6 +87,12 @@ export const StudyMaterialEditor: React.FC<StudyMaterialEditorProps> = ({
   const [editorSection, setEditorSection] = useState<'markdown' | 'tabs' | 'intro' | 'theory' | 'code' | 'syntax' | 'pitfalls'>('markdown');
   const [toastNotification, setToastNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [showResetConfirmModal, setShowResetConfirmModal] = useState(false);
+
+  // Estado de geracao assistida pelo Gemini no back-end
+  const [showAiModal, setShowAiModal] = useState(false);
+  const [aiGuidelines, setAiGuidelines] = useState('');
+  const [isGeneratingMaterial, setIsGeneratingMaterial] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -841,6 +853,19 @@ export function executeDemonstration() {
                 <div className="flex items-center gap-1 ml-auto">
                   <button
                     type="button"
+                    onClick={() => {
+                      setAiError(null);
+                      setShowAiModal(true);
+                    }}
+                    className="px-2.5 py-1.5 rounded-lg text-xs font-bold bg-indigo-600 text-white hover:bg-indigo-700 shadow-sm transition-all flex items-center gap-1.5"
+                    title="Gerar apostila completa usando Gemini no servidor"
+                  >
+                    <i className="fas fa-robot"></i>
+                    <span className="hidden lg:inline">Gerar com Gemini</span>
+                  </button>
+
+                  <button
+                    type="button"
                     onClick={insertFullLessonTemplate}
                     className="px-2.5 py-1.5 rounded-lg text-xs font-bold bg-blue-500/10 text-blue-500 hover:bg-blue-500/20 border border-blue-500/30 transition-all flex items-center gap-1"
                     title="Inserir estrutura didática completa de aula"
@@ -963,6 +988,27 @@ export function executeDemonstration() {
                               thead: ({ ...props }) => <thead className={`font-bold uppercase text-[10px] ${isDarkMode ? 'bg-slate-800 text-slate-200' : 'bg-gray-100 text-black'}`} {...props} />,
                               th: ({ ...props }) => <th className="px-3 py-2 border-b border-gray-200 dark:border-slate-700 font-bold" {...props} />,
                               td: ({ ...props }) => <td className={`px-3 py-2 border-b border-gray-100 dark:border-slate-800/60 ${isDarkMode ? 'text-slate-200' : 'text-black'}`} {...props} />,
+                              a: ({ href, children, ...props }) => {
+                                const safeHref = getSafeUrl(href);
+                                if (!safeHref) {
+                                  return (
+                                    <span className="text-rose-600 dark:text-rose-400 underline decoration-dotted" title="Link bloqueado por segurança">
+                                      {children}
+                                    </span>
+                                  );
+                                }
+                                return (
+                                  <a
+                                    href={safeHref}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-blue-600 dark:text-blue-400 underline font-semibold"
+                                    {...props}
+                                  >
+                                    {children}
+                                  </a>
+                                );
+                              },
                             }}
                           >
                             {markdownContent}
@@ -1514,6 +1560,115 @@ export function executeDemonstration() {
                 className="px-5 py-2.5 rounded-xl text-sm font-bold text-white bg-rose-600 hover:bg-rose-700 shadow-lg transition-all active:scale-95"
               >
                 Sim, Restaurar Original
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Geração de Apostila via Gemini (Back-end) */}
+      {showAiModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className={`max-w-lg w-full p-6 rounded-3xl shadow-2xl border ${
+            isDarkMode ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white border-gray-200 text-gray-900'
+          }`}>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-11 h-11 rounded-2xl flex items-center justify-center text-lg font-bold bg-indigo-600 text-white shadow-md">
+                <i className="fas fa-robot"></i>
+              </div>
+              <div>
+                <h4 className="font-extrabold text-lg">Gerar Apostila com Gemini</h4>
+                <span className="text-xs text-slate-400">
+                  Tópico: <strong className="text-blue-500">{topicName || initialMaterial.topicName}</strong>
+                </span>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className={`block text-xs font-bold mb-1.5 ${isDarkMode ? 'text-slate-300' : 'text-gray-700'}`}>
+                  Orientações ou subtópicos específicos (opcional)
+                </label>
+                <textarea
+                  rows={3}
+                  value={aiGuidelines}
+                  onChange={(e) => setAiGuidelines(e.target.value)}
+                  disabled={isGeneratingMaterial}
+                  placeholder="Ex: Focar em exemplos práticos com TypeScript, incluir tabela comparativa e diagrama Mermaid..."
+                  className={`w-full p-3 text-sm rounded-xl border outline-none focus:ring-2 focus:ring-indigo-500 ${
+                    isDarkMode ? 'bg-slate-900 border-slate-700 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'
+                  }`}
+                />
+              </div>
+
+              {markdownContent.trim().length > 0 && (
+                <div className={`p-3 rounded-xl text-xs border ${
+                  isDarkMode ? 'bg-amber-950/30 border-amber-800/50 text-amber-200' : 'bg-amber-50 border-amber-200 text-amber-800'
+                }`}>
+                  <i className="fas fa-info-circle mr-1.5"></i>
+                  O conteúdo gerado substituirá o rascunho atual no editor para que você possa revisar antes de salvar.
+                </div>
+              )}
+
+              {aiError && (
+                <div className="p-3 rounded-xl text-xs font-medium bg-red-100 border-l-4 border-red-500 text-red-700">
+                  <i className="fas fa-exclamation-triangle mr-1.5"></i>
+                  {aiError}
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center justify-end gap-3 mt-6">
+              <button
+                type="button"
+                disabled={isGeneratingMaterial}
+                onClick={() => setShowAiModal(false)}
+                className={`px-4 py-2.5 rounded-xl text-sm font-bold transition-all border ${
+                  isDarkMode
+                    ? 'bg-slate-700 border-slate-600 text-slate-300 hover:bg-slate-600'
+                    : 'bg-gray-100 border-gray-200 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                disabled={isGeneratingMaterial}
+                onClick={async () => {
+                  setAiError(null);
+                  setIsGeneratingMaterial(true);
+                  try {
+                    const generated = await generateStudyMaterialViaApi({
+                      disciplineName,
+                      topicName: topicName.trim() || initialMaterial.topicName || 'Tópico',
+                      guidelines: aiGuidelines.trim(),
+                    });
+                    setMarkdownContent(generated);
+                    setShowAiModal(false);
+                    setAiGuidelines('');
+                    triggerToast('Apostila gerada via Gemini! Revise na prévia antes de salvar.');
+                  } catch (err) {
+                    if (err instanceof SessionExpiredError) {
+                      setShowAiModal(false);
+                      onSessionExpired?.();
+                      return;
+                    }
+                    setAiError(err instanceof Error ? err.message : 'Erro ao gerar apostila.');
+                  } finally {
+                    setIsGeneratingMaterial(false);
+                  }
+                }}
+                className="px-5 py-2.5 rounded-xl text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 shadow-lg transition-all flex items-center gap-2"
+              >
+                {isGeneratingMaterial ? (
+                  <>
+                    <i className="fas fa-spinner fa-spin"></i> Gerando...
+                  </>
+                ) : (
+                  <>
+                    <i className="fas fa-sparkles"></i> Gerar Apostila
+                  </>
+                )}
               </button>
             </div>
           </div>

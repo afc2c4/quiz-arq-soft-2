@@ -67,11 +67,30 @@ const DEFAULT_DISCIPLINE_MAPPING: Record<string, { topics: string[], icon: strin
 };
 
 const App: React.FC = () => {
+  const [isDarkMode, setIsDarkMode] = useState(false);
+  const [view, setView] = useState<'quiz' | 'exam-builder' | 'admin' | 'login'>('quiz');
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [sessionNotice, setSessionNotice] = useState<string | null>(null);
+  const authActionSeqRef = React.useRef(0);
+
+  const handleSessionExpired = React.useCallback(() => {
+    authActionSeqRef.current += 1;
+    setSessionNotice('Sua sessão expirou ou não está autenticada. Faça login novamente para continuar.');
+    setIsLoggedIn(false);
+    setView('login');
+  }, []);
+
   const { 
     questions, 
     topics, 
     disciplines,
     customMaterials,
+    isLoading: isDbLoading,
+    isSaving: isDbSaving,
+    error: dbError,
+    clearError: clearDbError,
+    reloadDatabase,
+    migrateToFirestore,
     getStudyMaterial,
     updateStudyMaterial,
     resetStudyMaterial,
@@ -88,11 +107,7 @@ const App: React.FC = () => {
     deleteDiscipline,
     importQuestions,
     importStudyMaterials
-  } = useDatabase();
-
-  const [isDarkMode, setIsDarkMode] = useState(false);
-  const [view, setView] = useState<'quiz' | 'exam-builder' | 'admin' | 'login'>('quiz');
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  } = useDatabase(handleSessionExpired);
   const [selectedDisciplineId, setSelectedDisciplineId] = useState<string | null>(null);
   const [shuffledQuestions, setShuffledQuestions] = useState<Question[]>([]);
   const [state, setState] = useState<QuizState>({
@@ -124,9 +139,10 @@ const App: React.FC = () => {
 
   React.useEffect(() => {
     let active = true;
+    const seqAtStart = authActionSeqRef.current;
     checkSession().then((authenticated) => {
-      if (active && authenticated) {
-        setIsLoggedIn(true);
+      if (active && authActionSeqRef.current === seqAtStart) {
+        setIsLoggedIn(authenticated);
       }
     });
     return () => {
@@ -241,8 +257,11 @@ const App: React.FC = () => {
   };
 
   const handleLogin = async (password: string): Promise<{ ok: boolean; error?: string }> => {
+    authActionSeqRef.current += 1;
     const result = await loginAdmin(password);
     if (result.ok) {
+      clearDbError();
+      setSessionNotice(null);
       setIsLoggedIn(true);
       setView('admin');
     }
@@ -250,14 +269,12 @@ const App: React.FC = () => {
   };
 
   const handleLogout = async () => {
+    authActionSeqRef.current += 1;
     await logoutAdmin();
+    clearDbError();
+    setSessionNotice(null);
     setIsLoggedIn(false);
     setView('quiz');
-  };
-
-  const handleSessionExpired = () => {
-    setIsLoggedIn(false);
-    setView('login');
   };
 
   const renderTopicSelection = () => {
@@ -271,21 +288,56 @@ const App: React.FC = () => {
             Escolha uma disciplina para começar sua jornada de aprendizado.
           </p>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {disciplines.map(d => (
-              <button
-                key={d.id}
-                onClick={() => setSelectedDisciplineId(d.id)}
-                className={`p-8 rounded-3xl shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 border-b-4 border-transparent hover:border-blue-500 text-left group
-                  ${isDarkMode ? 'bg-slate-800 text-white' : 'bg-white text-gray-800'}`}
-              >
-                <h3 className="text-2xl font-bold mb-3">{d.name}</h3>
-                <div className="flex items-center text-blue-500 font-semibold group-hover:translate-x-1 transition-transform">
-                  Ver Tópicos <i className="fas fa-arrow-right ml-2 text-xs"></i>
+          {isDbLoading ? (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+              {[1, 2, 3].map((idx) => (
+                <div
+                  key={idx}
+                  className={`p-8 rounded-3xl shadow-lg animate-pulse h-36 ${
+                    isDarkMode ? 'bg-slate-800' : 'bg-white'
+                  }`}
+                >
+                  <div className={`h-6 w-3/4 rounded-lg mb-4 ${isDarkMode ? 'bg-slate-700' : 'bg-gray-200'}`}></div>
+                  <div className={`h-4 w-1/2 rounded-lg ${isDarkMode ? 'bg-slate-700' : 'bg-gray-100'}`}></div>
                 </div>
+              ))}
+            </div>
+          ) : disciplines.length === 0 ? (
+            <div className={`p-10 rounded-3xl border border-dashed max-w-2xl mx-auto ${
+              isDarkMode ? 'bg-slate-800/60 border-slate-700 text-slate-300' : 'bg-white border-gray-300 text-gray-700'
+            }`}>
+              <i className="fas fa-database text-3xl text-blue-500 mb-3"></i>
+              <h3 className={`text-xl font-bold mb-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                Nenhuma disciplina cadastrada no Firestore
+              </h3>
+              <p className={`text-sm mb-5 ${isDarkMode ? 'text-slate-400' : 'text-gray-500'}`}>
+                Acesse a aba Professor para cadastrar disciplinas ou migrar os dados existentes para o Cloud Firestore.
+              </p>
+              <button
+                type="button"
+                onClick={() => setView(isLoggedIn ? 'admin' : 'login')}
+                className="px-5 py-2.5 rounded-xl text-sm font-bold bg-blue-600 hover:bg-blue-700 text-white shadow-md transition-all"
+              >
+                {isLoggedIn ? 'Ir para o Painel do Professor' : 'Entrar como Professor'}
               </button>
-            ))}
-          </div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+              {disciplines.map(d => (
+                <button
+                  key={d.id}
+                  onClick={() => setSelectedDisciplineId(d.id)}
+                  className={`p-8 rounded-3xl shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 border-b-4 border-transparent hover:border-blue-500 text-left group
+                    ${isDarkMode ? 'bg-slate-800 text-white' : 'bg-white text-gray-800'}`}
+                >
+                  <h3 className="text-2xl font-bold mb-3">{d.name}</h3>
+                  <div className="flex items-center text-blue-500 font-semibold group-hover:translate-x-1 transition-transform">
+                    Ver Tópicos <i className="fas fa-arrow-right ml-2 text-xs"></i>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       );
     }
@@ -620,6 +672,49 @@ const App: React.FC = () => {
       />
       
       <main className="flex-grow flex flex-col">
+        {/* Banner Global de Erro de Comunicação com o Firestore */}
+        {dbError && (
+          <div className="max-w-6xl w-full mx-auto px-4 pt-4">
+            <div className={`p-4 rounded-2xl border flex flex-wrap items-center justify-between gap-3 shadow-sm ${
+              isDarkMode
+                ? 'bg-red-950/50 border-red-800 text-red-200'
+                : 'bg-red-50 border-red-200 text-red-800'
+            }`}>
+              <div className="flex items-center gap-3 text-sm font-medium">
+                <i className="fas fa-circle-exclamation text-red-500 text-base shrink-0"></i>
+                <span>{dbError}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => void reloadDatabase()}
+                  className="px-3 py-1.5 rounded-xl text-xs font-bold bg-red-600 hover:bg-red-700 text-white transition-all"
+                >
+                  <i className="fas fa-rotate-right mr-1.5"></i> Tentar Novamente
+                </button>
+                <button
+                  type="button"
+                  onClick={clearDbError}
+                  className={`px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                    isDarkMode ? 'hover:bg-red-900/60 text-red-300' : 'hover:bg-red-100 text-red-700'
+                  }`}
+                  aria-label="Fechar aviso de erro"
+                >
+                  <i className="fas fa-times"></i>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Indicador Discreto de Sincronização / Salvamento */}
+        {isDbSaving && (
+          <div className="fixed bottom-6 left-6 z-40 px-4 py-2.5 rounded-2xl shadow-lg bg-blue-600 text-white text-xs font-bold flex items-center gap-2">
+            <i className="fas fa-spinner fa-spin"></i>
+            <span>Sincronizando com Firestore...</span>
+          </div>
+        )}
+
         {view === 'quiz' && (
           <>
             {!state.currentTopicId && renderTopicSelection()}
@@ -629,7 +724,7 @@ const App: React.FC = () => {
         )}
         
         {view === 'login' && (
-          <Login onLogin={handleLogin} isDarkMode={isDarkMode} />
+          <Login onLogin={handleLogin} isDarkMode={isDarkMode} notice={sessionNotice} />
         )}
 
         {view === 'exam-builder' && (
@@ -645,7 +740,7 @@ const App: React.FC = () => {
               disciplines={disciplines}
             />
           ) : (
-            <Login onLogin={handleLogin} isDarkMode={isDarkMode} />
+            <Login onLogin={handleLogin} isDarkMode={isDarkMode} notice={sessionNotice} />
           )
         )}
 
@@ -656,6 +751,9 @@ const App: React.FC = () => {
               questions={questions}
               topics={topics}
               disciplines={disciplines}
+              isLoading={isDbLoading}
+              isSaving={isDbSaving}
+              onMigrateToFirestore={migrateToFirestore}
               onAddQuestion={addQuestion}
               onUpdateQuestion={updateQuestion}
               onDeleteQuestion={deleteQuestion}
@@ -676,7 +774,7 @@ const App: React.FC = () => {
               onSessionExpired={handleSessionExpired}
             />
           ) : (
-            <Login onLogin={handleLogin} isDarkMode={isDarkMode} />
+            <Login onLogin={handleLogin} isDarkMode={isDarkMode} notice={sessionNotice} />
           )
         )}
       </main>

@@ -11,8 +11,8 @@ interface StudyMaterialViewProps {
   isDarkMode: boolean;
   isLoggedIn?: boolean;
   isCustomized?: boolean;
-  onSaveMaterial?: (material: StudyMaterial) => void;
-  onResetMaterial?: (topicId: string) => void;
+  onSaveMaterial?: (material: StudyMaterial) => Promise<boolean> | void;
+  onResetMaterial?: (topicId: string) => Promise<boolean> | void;
   onStartQuiz?: () => void;
   onClose?: () => void;
 }
@@ -708,16 +708,20 @@ const StudyMaterialView: React.FC<StudyMaterialViewProps> = ({
         initialMaterial={material}
         isDarkMode={isDarkMode}
         isCustomized={isCustomized}
-        onSave={(updated) => {
+        onSave={async (updated) => {
           if (isLoggedIn && onSaveMaterial) {
-            onSaveMaterial(updated);
+            const ok = await onSaveMaterial(updated);
+            if (ok === false) return false;
           }
           setIsEditing(false);
+          return true;
         }}
         onCancel={() => setIsEditing(false)}
-        onResetToDefault={isLoggedIn && onResetMaterial ? () => {
-          onResetMaterial(material.topicId);
+        onResetToDefault={isLoggedIn && onResetMaterial ? async () => {
+          const ok = await onResetMaterial(material.topicId);
+          if (ok === false) return false;
           setIsEditing(false);
+          return true;
         } : undefined}
         renderPreview={(previewMaterial) => (
           <div className="max-w-5xl mx-auto">

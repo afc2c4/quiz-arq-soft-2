@@ -1,186 +1,355 @@
-
-import { useState, useEffect } from 'react';
-import { Question, Topic, Discipline, StudyMaterial } from '../types';
-import { MIGRATED_DISCIPLINES, MIGRATED_TOPICS, MIGRATED_QUESTIONS } from '../dataMigration';
+import { useState, useEffect, useCallback } from 'react';
+import type { Question, Topic, Discipline, StudyMaterial } from '../types';
 import { getStudyMaterialByTopic, createEmptyStudyMaterial } from '../src/data/studyMaterials';
+import { SessionExpiredError } from '../src/services/geminiClient';
+import {
+  fetchDisciplines,
+  createDisciplineApi,
+  updateDisciplineApi,
+  deleteDisciplineApi,
+  fetchAllTopics,
+  createTopicApi,
+  updateTopicApi,
+  deleteTopicApi,
+  fetchAllQuestions,
+  saveQuestionsForTopicApi,
+  updateQuestionApi,
+  deleteQuestionApi,
+  fetchAllApostilas,
+  saveApostilaApi,
+  deleteApostilaApi,
+  clearAllApostilasApi,
+  migrateToFirestoreApi,
+  type MigrationResultSummary,
+} from '../src/services/databaseApi';
 
-const QUESTIONS_KEY = 'mestre_digital_questions';
-const TOPICS_KEY = 'mestre_digital_topics';
-const DISCIPLINES_KEY = 'mestre_digital_disciplines';
-const STUDY_MATERIALS_KEY = 'mestre_digital_study_materials';
-const STUDY_MATERIALS_CLEARED_FLAG = 'mestre_digital_materials_cleared_all_v1';
-const MIGRATION_DONE_KEY = 'mestre_digital_migrated_v3';
-
-export const useDatabase = () => {
+export const useDatabase = (onSessionExpired?: () => void) => {
   const [questions, setQuestions] = useState<Question[]>([]);
   const [topics, setTopics] = useState<Topic[]>([]);
   const [disciplines, setDisciplines] = useState<Discipline[]>([]);
   const [customMaterials, setCustomMaterials] = useState<Record<string, StudyMaterial>>({});
 
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isSaving, setIsSaving] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleApiError = useCallback(
+    (err: unknown, fallbackMessage: string): string => {
+      if (err instanceof SessionExpiredError) {
+        setError(null);
+        onSessionExpired?.();
+        return err.message;
+      }
+      const message = err instanceof Error && err.message ? err.message : fallbackMessage;
+      setError(message);
+      return message;
+    },
+    [onSessionExpired]
+  );
+
+  const reloadDatabase = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const [loadedDisciplines, loadedTopics, loadedQuestions, loadedApostilas] = await Promise.all([
+        fetchDisciplines(),
+        fetchAllTopics(),
+        fetchAllQuestions(),
+        fetchAllApostilas(),
+      ]);
+
+      setDisciplines(loadedDisciplines);
+      setTopics(loadedTopics);
+      setQuestions(loadedQuestions);
+      setCustomMaterials(loadedApostilas);
+    } catch (err) {
+      handleApiError(err, 'Erro ao carregar os dados do Firestore.');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [handleApiError]);
+
   useEffect(() => {
-    const storedQuestions = localStorage.getItem(QUESTIONS_KEY);
-    const storedTopics = localStorage.getItem(TOPICS_KEY);
-    const storedDisciplines = localStorage.getItem(DISCIPLINES_KEY);
-    
-    // Limpeza mandatória de todos os conteúdos didáticos pré-existentes
-    const hasClearedMaterials = localStorage.getItem(STUDY_MATERIALS_CLEARED_FLAG);
-    if (!hasClearedMaterials) {
-      localStorage.removeItem(STUDY_MATERIALS_KEY);
-      localStorage.setItem(STUDY_MATERIALS_CLEARED_FLAG, 'true');
-      setCustomMaterials({});
-    } else {
-      const storedMaterials = localStorage.getItem(STUDY_MATERIALS_KEY);
-      if (storedMaterials) {
-        try {
-          const parsed = JSON.parse(storedMaterials);
-          setCustomMaterials(parsed);
-        } catch (e) {
-          console.error('Erro ao ler materiais customizados do localStorage:', e);
-        }
-      }
-    }
+    void reloadDatabase();
+  }, [reloadDatabase]);
 
-    if (storedQuestions && storedTopics && storedDisciplines) {
-      const parsedQuestions = JSON.parse(storedQuestions);
-      const parsedTopics = JSON.parse(storedTopics);
-      const parsedDisciplines = JSON.parse(storedDisciplines);
-
-      const hasRunMigration = localStorage.getItem(MIGRATION_DONE_KEY);
-      
-      if (!hasRunMigration) {
-        // Merge with new migrated data once
-        const updatedDisciplines = [...parsedDisciplines, ...MIGRATED_DISCIPLINES.filter(md => !parsedDisciplines.some((pd: Discipline) => pd.id === md.id))];
-        const updatedTopics = [...parsedTopics, ...MIGRATED_TOPICS.filter(mt => !parsedTopics.some((pt: Topic) => pt.id === mt.id))];
-        const updatedQuestions = [...parsedQuestions, ...MIGRATED_QUESTIONS.filter(mq => !parsedQuestions.some((pq: Question) => pq.id === mq.id))];
-        
-        setDisciplines(updatedDisciplines);
-        setTopics(updatedTopics);
-        setQuestions(updatedQuestions);
-        
-        localStorage.setItem(DISCIPLINES_KEY, JSON.stringify(updatedDisciplines));
-        localStorage.setItem(TOPICS_KEY, JSON.stringify(updatedTopics));
-        localStorage.setItem(QUESTIONS_KEY, JSON.stringify(updatedQuestions));
-        localStorage.setItem(MIGRATION_DONE_KEY, 'true');
-      } else {
-        setQuestions(parsedQuestions);
-        setTopics(parsedTopics);
-        setDisciplines(parsedDisciplines);
-      }
-    } else {
-      // Seed with migrated data
-      setDisciplines(MIGRATED_DISCIPLINES);
-      setTopics(MIGRATED_TOPICS);
-      setQuestions(MIGRATED_QUESTIONS);
-      
-      localStorage.setItem(DISCIPLINES_KEY, JSON.stringify(MIGRATED_DISCIPLINES));
-      localStorage.setItem(TOPICS_KEY, JSON.stringify(MIGRATED_TOPICS));
-      localStorage.setItem(QUESTIONS_KEY, JSON.stringify(MIGRATED_QUESTIONS));
-      localStorage.setItem(MIGRATION_DONE_KEY, 'true');
-    }
+  const clearError = useCallback(() => {
+    setError(null);
   }, []);
 
-  const saveQuestions = (newQuestions: Question[]) => {
-    localStorage.setItem(QUESTIONS_KEY, JSON.stringify(newQuestions));
-    setQuestions(newQuestions);
-  };
+  // --- Questoes ---
 
-  const saveTopics = (newTopics: Topic[]) => {
-    localStorage.setItem(TOPICS_KEY, JSON.stringify(newTopics));
-    setTopics(newTopics);
-  };
-
-  const saveDisciplines = (newDisciplines: Discipline[]) => {
-    localStorage.setItem(DISCIPLINES_KEY, JSON.stringify(newDisciplines));
-    setDisciplines(newDisciplines);
-  };
-
-  const addQuestion = (question: Question) => saveQuestions([...questions, question]);
-  const updateQuestion = (updatedQuestion: Question) => saveQuestions(questions.map(q => q.id === updatedQuestion.id ? updatedQuestion : q));
-  const deleteQuestion = (id: string) => saveQuestions(questions.filter(q => q.id !== id));
-
-  const addTopic = (topic: Topic) => {
-    saveTopics([...topics, topic]);
-    // Inicializa explicitamente o novo tópico com uma apostila vazia pronta para edição em Markdown
-    const emptyMaterial = createEmptyStudyMaterial(topic);
-    const updated = {
-      ...customMaterials,
-      [topic.id]: emptyMaterial
-    };
-    saveCustomMaterials(updated);
-  };
-  const updateTopic = (updatedTopic: Topic) => {
-    saveTopics(topics.map(t => t.id === updatedTopic.id ? updatedTopic : t));
-  };
-  const deleteTopic = (id: string) => {
-    saveTopics(topics.filter(t => t.id !== id));
-    saveQuestions(questions.filter(q => q.topicId !== id));
-    resetStudyMaterial(id);
-  };
-
-  const addDiscipline = (discipline: Discipline) => saveDisciplines([...disciplines, discipline]);
-  const updateDiscipline = (updatedDiscipline: Discipline) => {
-    saveDisciplines(disciplines.map(d => d.id === updatedDiscipline.id ? updatedDiscipline : d));
-  };
-  const deleteDiscipline = (id: string) => {
-    saveDisciplines(disciplines.filter(d => d.id !== id));
-    const topicsToDelete = topics.filter(t => t.disciplineId === id);
-    saveTopics(topics.filter(t => t.disciplineId !== id));
-    const topicIdsToDelete = topicsToDelete.map(t => t.id);
-    saveQuestions(questions.filter(q => !topicIdsToDelete.includes(q.topicId)));
-    
-    // Clean up study materials for deleted topics
-    const updatedMaterials = { ...customMaterials };
-    let hasChanges = false;
-    topicIdsToDelete.forEach(tId => {
-      if (updatedMaterials[tId]) {
-        delete updatedMaterials[tId];
-        hasChanges = true;
+  const addQuestion = async (question: Question): Promise<boolean> => {
+    setIsSaving(true);
+    setError(null);
+    try {
+      const [saved] = await saveQuestionsForTopicApi(question.topicId, [question]);
+      if (saved) {
+        setQuestions((prev) => [...prev.filter((q) => q.id !== saved.id), saved]);
       }
-    });
-    if (hasChanges) {
-      saveCustomMaterials(updatedMaterials);
+      return true;
+    } catch (err) {
+      handleApiError(err, 'Erro ao salvar questão no Firestore.');
+      return false;
+    } finally {
+      setIsSaving(false);
     }
   };
 
-  const importQuestions = (newQuestions: Question[]) => {
-    // Merge or replace by question ID
-    const currentMap = new Map(questions.map(q => [q.id, q]));
-    newQuestions.forEach(q => {
-      currentMap.set(q.id, q);
-    });
-    saveQuestions(Array.from(currentMap.values()));
+  const updateQuestion = async (updatedQuestion: Question): Promise<boolean> => {
+    setIsSaving(true);
+    setError(null);
+    try {
+      const saved = await updateQuestionApi(updatedQuestion);
+      setQuestions((prev) => prev.map((q) => (q.id === saved.id ? saved : q)));
+      return true;
+    } catch (err) {
+      handleApiError(err, 'Erro ao atualizar questão no Firestore.');
+      return false;
+    } finally {
+      setIsSaving(false);
+    }
   };
 
-  const importStudyMaterials = (materials: Record<string, StudyMaterial>) => {
-    const updated = {
-      ...customMaterials,
-      ...materials
-    };
-    saveCustomMaterials(updated);
+  const deleteQuestion = async (id: string): Promise<boolean> => {
+    setIsSaving(true);
+    setError(null);
+    try {
+      await deleteQuestionApi(id);
+      setQuestions((prev) => prev.filter((q) => q.id !== id));
+      return true;
+    } catch (err) {
+      handleApiError(err, 'Erro ao excluir questão no Firestore.');
+      return false;
+    } finally {
+      setIsSaving(false);
+    }
   };
 
-  const saveCustomMaterials = (updated: Record<string, StudyMaterial>) => {
-    localStorage.setItem(STUDY_MATERIALS_KEY, JSON.stringify(updated));
-    setCustomMaterials(updated);
+  const importQuestions = async (newQuestions: Question[]): Promise<boolean> => {
+    if (!newQuestions.length) return true;
+    setIsSaving(true);
+    setError(null);
+    try {
+      const byTopic = new Map<string, Question[]>();
+      for (const q of newQuestions) {
+        const list = byTopic.get(q.topicId) || [];
+        list.push(q);
+        byTopic.set(q.topicId, list);
+      }
+
+      const savedAll: Question[] = [];
+      for (const [topicId, list] of byTopic.entries()) {
+        const saved = await saveQuestionsForTopicApi(topicId, list);
+        savedAll.push(...saved);
+      }
+
+      setQuestions((prev) => {
+        const map = new Map<string, Question>(prev.map((q) => [q.id, q]));
+        savedAll.forEach((q) => map.set(q.id, q));
+        return Array.from(map.values());
+      });
+      return true;
+    } catch (err) {
+      handleApiError(err, 'Erro ao importar questões para o Firestore.');
+      return false;
+    } finally {
+      setIsSaving(false);
+    }
   };
 
-  const updateStudyMaterial = (material: StudyMaterial) => {
-    const updated = {
-      ...customMaterials,
-      [material.topicId]: material
-    };
-    saveCustomMaterials(updated);
+  // --- Topicos ---
+
+  const addTopic = async (topic: Topic): Promise<boolean> => {
+    setIsSaving(true);
+    setError(null);
+    try {
+      const savedTopic = await createTopicApi(topic);
+      const emptyMaterial = createEmptyStudyMaterial(savedTopic);
+      const savedMaterial = await saveApostilaApi(savedTopic.id, emptyMaterial);
+
+      setTopics((prev) => [...prev.filter((t) => t.id !== savedTopic.id), savedTopic]);
+      setCustomMaterials((prev) => ({ ...prev, [savedTopic.id]: savedMaterial }));
+      return true;
+    } catch (err) {
+      handleApiError(err, 'Erro ao criar tópico no Firestore.');
+      return false;
+    } finally {
+      setIsSaving(false);
+    }
   };
 
-  const resetStudyMaterial = (topicId: string) => {
-    const updated = { ...customMaterials };
-    delete updated[topicId];
-    saveCustomMaterials(updated);
+  const updateTopic = async (updatedTopic: Topic): Promise<boolean> => {
+    setIsSaving(true);
+    setError(null);
+    try {
+      const saved = await updateTopicApi(updatedTopic);
+      setTopics((prev) => prev.map((t) => (t.id === saved.id ? saved : t)));
+      return true;
+    } catch (err) {
+      handleApiError(err, 'Erro ao atualizar tópico no Firestore.');
+      return false;
+    } finally {
+      setIsSaving(false);
+    }
   };
 
-  const clearAllStudyMaterials = () => {
-    localStorage.removeItem(STUDY_MATERIALS_KEY);
-    setCustomMaterials({});
+  const deleteTopic = async (id: string): Promise<boolean> => {
+    setIsSaving(true);
+    setError(null);
+    try {
+      await deleteTopicApi(id);
+      setTopics((prev) => prev.filter((t) => t.id !== id));
+      setQuestions((prev) => prev.filter((q) => q.topicId !== id));
+      setCustomMaterials((prev) => {
+        const next = { ...prev };
+        delete next[id];
+        return next;
+      });
+      return true;
+    } catch (err) {
+      handleApiError(err, 'Erro ao excluir tópico no Firestore.');
+      return false;
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // --- Disciplinas ---
+
+  const addDiscipline = async (discipline: Discipline): Promise<boolean> => {
+    setIsSaving(true);
+    setError(null);
+    try {
+      const saved = await createDisciplineApi(discipline);
+      setDisciplines((prev) => [...prev.filter((d) => d.id !== saved.id), saved]);
+      return true;
+    } catch (err) {
+      handleApiError(err, 'Erro ao criar disciplina no Firestore.');
+      return false;
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const updateDiscipline = async (updatedDiscipline: Discipline): Promise<boolean> => {
+    setIsSaving(true);
+    setError(null);
+    try {
+      const saved = await updateDisciplineApi(updatedDiscipline);
+      setDisciplines((prev) => prev.map((d) => (d.id === saved.id ? saved : d)));
+      return true;
+    } catch (err) {
+      handleApiError(err, 'Erro ao atualizar disciplina no Firestore.');
+      return false;
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const deleteDiscipline = async (id: string): Promise<boolean> => {
+    setIsSaving(true);
+    setError(null);
+    try {
+      await deleteDisciplineApi(id);
+      const removedTopicIds = topics.filter((t) => t.disciplineId === id).map((t) => t.id);
+      setDisciplines((prev) => prev.filter((d) => d.id !== id));
+      setTopics((prev) => prev.filter((t) => t.disciplineId !== id));
+      setQuestions((prev) => prev.filter((q) => !removedTopicIds.includes(q.topicId)));
+      setCustomMaterials((prev) => {
+        const next = { ...prev };
+        removedTopicIds.forEach((tId) => delete next[tId]);
+        return next;
+      });
+      return true;
+    } catch (err) {
+      handleApiError(err, 'Erro ao excluir disciplina no Firestore.');
+      return false;
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // --- Apostilas (Conteudos Didaticos) ---
+
+  const updateStudyMaterial = async (material: StudyMaterial): Promise<boolean> => {
+    setIsSaving(true);
+    setError(null);
+    try {
+      const saved = await saveApostilaApi(material.topicId, material);
+      setCustomMaterials((prev) => ({
+        ...prev,
+        [saved.topicId]: saved,
+      }));
+      return true;
+    } catch (err) {
+      handleApiError(err, 'Erro ao salvar apostila no Firestore.');
+      return false;
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const importStudyMaterials = async (materials: Record<string, StudyMaterial>): Promise<boolean> => {
+    const entries = Object.entries(materials);
+    if (!entries.length) return true;
+    setIsSaving(true);
+    setError(null);
+    try {
+      const savedEntries = await Promise.all(
+        entries.map(async ([topicId, mat]) => {
+          const saved = await saveApostilaApi(topicId, { ...mat, topicId });
+          return [topicId, saved] as const;
+        })
+      );
+      setCustomMaterials((prev) => {
+        const next = { ...prev };
+        savedEntries.forEach(([topicId, saved]) => {
+          next[topicId] = saved;
+        });
+        return next;
+      });
+      return true;
+    } catch (err) {
+      handleApiError(err, 'Erro ao importar apostilas para o Firestore.');
+      return false;
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const resetStudyMaterial = async (topicId: string): Promise<boolean> => {
+    setIsSaving(true);
+    setError(null);
+    try {
+      await deleteApostilaApi(topicId);
+      setCustomMaterials((prev) => {
+        const next = { ...prev };
+        delete next[topicId];
+        return next;
+      });
+      return true;
+    } catch (err) {
+      handleApiError(err, 'Erro ao restaurar apostila no Firestore.');
+      return false;
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const clearAllStudyMaterials = async (): Promise<boolean> => {
+    setIsSaving(true);
+    setError(null);
+    try {
+      await clearAllApostilasApi();
+      setCustomMaterials({});
+      return true;
+    } catch (err) {
+      handleApiError(err, 'Erro ao limpar conteúdos didáticos no Firestore.');
+      return false;
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const getStudyMaterial = (topic: Topic): StudyMaterial => {
@@ -194,11 +363,39 @@ export const useDatabase = () => {
     return Boolean(customMaterials[topicId]);
   };
 
+  // --- Migracao ---
+
+  const migrateToFirestore = async (payload: {
+    disciplines: Discipline[];
+    topics: Topic[];
+    questions: Question[];
+    apostilas: Record<string, StudyMaterial>;
+  }): Promise<{ ok: boolean; migrated?: MigrationResultSummary; error?: string }> => {
+    setIsSaving(true);
+    setError(null);
+    try {
+      const migrated = await migrateToFirestoreApi(payload);
+      await reloadDatabase();
+      return { ok: true, migrated };
+    } catch (err) {
+      const msg = handleApiError(err, 'Erro ao migrar dados para o Firestore.');
+      return { ok: false, error: msg };
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   return {
     questions,
     topics,
     disciplines,
     customMaterials,
+    isLoading,
+    isSaving,
+    error,
+    clearError,
+    reloadDatabase,
+    migrateToFirestore,
     getStudyMaterial,
     updateStudyMaterial,
     resetStudyMaterial,
@@ -214,6 +411,6 @@ export const useDatabase = () => {
     updateDiscipline,
     deleteDiscipline,
     importQuestions,
-    importStudyMaterials
+    importStudyMaterials,
   };
 };

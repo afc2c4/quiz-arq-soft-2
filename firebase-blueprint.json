@@ -1,0 +1,157 @@
+{
+  "entities": {
+    "Discipline": {
+      "title": "Discipline",
+      "description": "Disciplina acadêmica que agrupa tópicos de estudo e simulados.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Identificador único da disciplina."
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200,
+          "description": "Nome da disciplina."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Carimbo de data/hora ISO da última atualização."
+        }
+      },
+      "required": ["id", "name"]
+    },
+    "Topic": {
+      "title": "Topic",
+      "description": "Tópico de estudo pertencente a uma disciplina.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Identificador único do tópico."
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200,
+          "description": "Nome do tópico."
+        },
+        "disciplineId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Identificador da disciplina pai."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Carimbo de data/hora ISO da última atualização."
+        }
+      },
+      "required": ["id", "name", "disciplineId"]
+    },
+    "Question": {
+      "title": "Question",
+      "description": "Questão de múltipla escolha associada a um tópico.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Identificador único da questão."
+        },
+        "topicId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Identificador do tópico associado."
+        },
+        "question": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 5000,
+          "description": "Enunciado da questão."
+        },
+        "options": {
+          "type": "array",
+          "description": "Lista com 5 alternativas da questão."
+        },
+        "correctAnswer": {
+          "type": "integer",
+          "description": "Índice da alternativa correta (0 a 4)."
+        },
+        "explanation": {
+          "type": "string",
+          "maxLength": 5000,
+          "description": "Explicação pedagógica da resposta correta."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Carimbo de data/hora ISO da última atualização."
+        }
+      },
+      "required": ["id", "topicId", "question", "options", "correctAnswer", "explanation"]
+    },
+    "Apostila": {
+      "title": "Apostila",
+      "description": "Material didático em Markdown e módulos teóricos de um tópico.",
+      "type": "object",
+      "properties": {
+        "topicId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Identificador do tópico associado."
+        },
+        "topicName": {
+          "type": "string",
+          "maxLength": 200,
+          "description": "Nome do tópico."
+        },
+        "markdownContent": {
+          "type": "string",
+          "maxLength": 400000,
+          "description": "Conteúdo didático completo em Markdown."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Carimbo de data/hora ISO da última atualização."
+        }
+      },
+      "required": ["topicId"]
+    }
+  },
+  "firestore": {
+    "/disciplines/{disciplineId}": {
+      "schema": { "$ref": "#/entities/Discipline" },
+      "description": "Coleção de disciplinas gerenciada pelo back-end via Firebase Admin SDK."
+    },
+    "/topics/{topicId}": {
+      "schema": { "$ref": "#/entities/Topic" },
+      "description": "Coleção de tópicos vinculados às disciplinas."
+    },
+    "/questions/{questionId}": {
+      "schema": { "$ref": "#/entities/Question" },
+      "description": "Banco de questões de múltipla escolha por tópico."
+    },
+    "/apostilas/{topicId}": {
+      "schema": { "$ref": "#/entities/Apostila" },
+      "description": "Apostilas e conteúdos didáticos por tópico."
+    }
+  }
+}

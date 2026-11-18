@@ -3,9 +3,10 @@ import React, { useState } from 'react';
 interface LoginProps {
   onLogin: (password: string) => Promise<{ ok: boolean; error?: string }>;
   isDarkMode: boolean;
+  notice?: string | null;
 }
 
-const Login: React.FC<LoginProps> = ({ onLogin, isDarkMode }) => {
+const Login: React.FC<LoginProps> = ({ onLogin, isDarkMode, notice }) => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -65,6 +66,14 @@ const Login: React.FC<LoginProps> = ({ onLogin, isDarkMode }) => {
               autoFocus
             />
           </div>
+
+          {!error && notice && (
+            <div className={`border-l-4 border-amber-500 p-3 rounded-lg text-sm font-medium ${
+              isDarkMode ? 'bg-amber-950/60 text-amber-200' : 'bg-amber-50 text-amber-800'
+            }`}>
+              <i className="fas fa-clock mr-2"></i> {notice}
+            </div>
+          )}
 
           {error && (
             <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-3 rounded-lg text-sm font-medium animate-in slide-in-from-top duration-300">

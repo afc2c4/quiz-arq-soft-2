@@ -3,27 +3,42 @@ import { Question, Topic, Discipline, StudyMaterial } from '../types';
 import { StudyMaterialEditor } from './StudyMaterialEditor';
 import { StudyMaterialContent } from './StudyMaterialView';
 import { generateQuestionsViaApi, SessionExpiredError } from '../src/services/geminiClient';
+import {
+  readLegacyLocalStorageData,
+  clearLegacyLocalStorageData,
+  type LegacyLocalStorageSnapshot,
+  type MigrationResultSummary,
+} from '../src/services/databaseApi';
+import { MIGRATED_DISCIPLINES, MIGRATED_TOPICS, MIGRATED_QUESTIONS } from '../dataMigration';
 
 interface AdminDashboardProps {
   isDarkMode: boolean;
   questions: Question[];
   topics: Topic[];
   disciplines: Discipline[];
-  onAddQuestion: (q: Question) => void;
-  onUpdateQuestion: (q: Question) => void;
-  onDeleteQuestion: (id: string) => void;
-  onImportQuestions?: (qs: Question[]) => void;
-  onAddTopic: (t: Topic) => void;
-  onUpdateTopic: (t: Topic) => void;
-  onDeleteTopic: (id: string) => void;
-  onAddDiscipline: (d: Discipline) => void;
-  onUpdateDiscipline: (d: Discipline) => void;
-  onDeleteDiscipline: (id: string) => void;
+  isLoading?: boolean;
+  isSaving?: boolean;
+  onMigrateToFirestore?: (payload: {
+    disciplines: Discipline[];
+    topics: Topic[];
+    questions: Question[];
+    apostilas: Record<string, StudyMaterial>;
+  }) => Promise<{ ok: boolean; migrated?: MigrationResultSummary; error?: string }>;
+  onAddQuestion: (q: Question) => Promise<boolean> | void;
+  onUpdateQuestion: (q: Question) => Promise<boolean> | void;
+  onDeleteQuestion: (id: string) => Promise<boolean> | void;
+  onImportQuestions?: (qs: Question[]) => Promise<boolean> | void;
+  onAddTopic: (t: Topic) => Promise<boolean> | void;
+  onUpdateTopic: (t: Topic) => Promise<boolean> | void;
+  onDeleteTopic: (id: string) => Promise<boolean> | void;
+  onAddDiscipline: (d: Discipline) => Promise<boolean> | void;
+  onUpdateDiscipline: (d: Discipline) => Promise<boolean> | void;
+  onDeleteDiscipline: (id: string) => Promise<boolean> | void;
   getStudyMaterial?: (topic: Topic) => StudyMaterial;
-  onUpdateStudyMaterial?: (material: StudyMaterial) => void;
-  onResetStudyMaterial?: (topicId: string) => void;
-  onClearAllStudyMaterials?: () => void;
-  onImportStudyMaterials?: (materials: Record<string, StudyMaterial>) => void;
+  onUpdateStudyMaterial?: (material: StudyMaterial) => Promise<boolean> | void;
+  onResetStudyMaterial?: (topicId: string) => Promise<boolean> | void;
+  onClearAllStudyMaterials?: () => Promise<boolean> | void;
+  onImportStudyMaterials?: (materials: Record<string, StudyMaterial>) => Promise<boolean> | void;
   hasCustomStudyMaterial?: (topicId: string) => boolean;
   customMaterials?: Record<string, StudyMaterial>;
   onSessionExpired?: () => void;
@@ -43,6 +58,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   questions,
   topics,
   disciplines,
+  isLoading = false,
+  isSaving = false,
+  onMigrateToFirestore,
   onAddQuestion,
   onUpdateQuestion,
   onDeleteQuestion,
@@ -104,6 +122,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [isGeneratingQuestions, setIsGeneratingQuestions] = useState<boolean>(false);
   const [aiQuestionError, setAiQuestionError] = useState<string | null>(null);
 
+  // Estados de Migração localStorage -> Firestore
+  const [legacySnapshot, setLegacySnapshot] = useState<LegacyLocalStorageSnapshot>(() => readLegacyLocalStorageData());
+  const [isMigrating, setIsMigrating] = useState<boolean>(false);
+  const [migrationResult, setMigrationResult] = useState<MigrationResultSummary | null>(null);
+  const [migrationError, setMigrationError] = useState<string | null>(null);
+
   // Referências para inputs de arquivos JSON
   const materialFileInputRef = useRef<HTMLInputElement>(null);
   const questionsFileInputRef = useRef<HTMLInputElement>(null);
@@ -122,18 +146,68 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     URL.revokeObjectURL(url);
   };
 
+  // --- Handler de Migração para Firestore ---
+  const handleRunMigration = async (useDefaultSeed = false) => {
+    if (!onMigrateToFirestore || isMigrating) return;
+    setMigrationError(null);
+    setMigrationResult(null);
+    setIsMigrating(true);
+
+    try {
+      const currentSnapshot = readLegacyLocalStorageData();
+      setLegacySnapshot(currentSnapshot);
+
+      const payload =
+        !useDefaultSeed && currentSnapshot.totalItems > 0
+          ? {
+              disciplines: currentSnapshot.disciplines,
+              topics: currentSnapshot.topics,
+              questions: currentSnapshot.questions,
+              apostilas: currentSnapshot.apostilas,
+            }
+          : {
+              disciplines: MIGRATED_DISCIPLINES,
+              topics: MIGRATED_TOPICS,
+              questions: MIGRATED_QUESTIONS,
+              apostilas: {},
+            };
+
+      const res = await onMigrateToFirestore(payload);
+      if (!res.ok) {
+        setMigrationError(res.error || 'Falha ao migrar dados para o Firestore.');
+        return;
+      }
+
+      if (!useDefaultSeed && currentSnapshot.totalItems > 0) {
+        clearLegacyLocalStorageData();
+        setLegacySnapshot(readLegacyLocalStorageData());
+      }
+
+      if (res.migrated) {
+        setMigrationResult(res.migrated);
+        showToast(
+          `Migração concluída: ${res.migrated.disciplines} disciplina(s), ${res.migrated.topics} tópico(s), ${res.migrated.questions} questão(ões) e ${res.migrated.apostilas} apostila(s).`
+        );
+      }
+    } finally {
+      setIsMigrating(false);
+    }
+  };
+
   // --- Handlers de Disciplina ---
-  const handleDisciplineSubmit = (e: React.FormEvent) => {
+  const handleDisciplineSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newDisciplineName.trim()) return;
 
     if (editingDiscipline) {
-      onUpdateDiscipline({ ...editingDiscipline, name: newDisciplineName.trim() });
+      const ok = await onUpdateDiscipline({ ...editingDiscipline, name: newDisciplineName.trim() });
+      if (ok === false) return;
       showToast(`Disciplina renomeada para "${newDisciplineName.trim()}".`);
       setEditingDiscipline(null);
     } else {
       const newId = `d-${Date.now()}`;
-      onAddDiscipline({ id: newId, name: newDisciplineName.trim() });
+      const ok = await onAddDiscipline({ id: newId, name: newDisciplineName.trim() });
+      if (ok === false) return;
       setSelectedDisciplineId(newId);
       showToast(`Disciplina "${newDisciplineName.trim()}" criada com sucesso.`);
     }
@@ -158,33 +232,36 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     setConfirmModal({
       isOpen: true,
       title: `Excluir Disciplina "${d.name}"?`,
-      message: `Esta ação apagará permanentemente a disciplina "${d.name}", seus ${dTopics.length} tópico(s) cadastrados, materiais de estudo e ${qCount} questão(ões) associadas.`,
+      message: `Esta ação apagará permanentemente no Firestore a disciplina "${d.name}", seus ${dTopics.length} tópico(s) cadastrados, materiais de estudo e ${qCount} questão(ões) associadas.`,
       confirmLabel: 'Sim, Excluir Disciplina',
       isDanger: true,
-      onConfirm: () => {
-        onDeleteDiscipline(d.id);
+      onConfirm: async () => {
+        const ok = await onDeleteDiscipline(d.id);
+        setConfirmModal(null);
+        if (ok === false) return;
         if (selectedDisciplineId === d.id) {
           setSelectedDisciplineId(null);
           setSelectedTopicId(null);
         }
-        setConfirmModal(null);
         showToast(`Disciplina "${d.name}" excluída com sucesso.`);
       }
     });
   };
 
   // --- Handlers de Tópico ---
-  const handleTopicSubmit = (e: React.FormEvent) => {
+  const handleTopicSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newTopicName.trim() || !selectedDisciplineId) return;
 
     if (editingTopic) {
-      onUpdateTopic({ ...editingTopic, name: newTopicName.trim() });
+      const ok = await onUpdateTopic({ ...editingTopic, name: newTopicName.trim() });
+      if (ok === false) return;
       showToast(`Tópico renomeado para "${newTopicName.trim()}".`);
       setEditingTopic(null);
     } else {
       const newId = `t-${Date.now()}`;
-      onAddTopic({ id: newId, name: newTopicName.trim(), disciplineId: selectedDisciplineId });
+      const ok = await onAddTopic({ id: newId, name: newTopicName.trim(), disciplineId: selectedDisciplineId });
+      if (ok === false) return;
       setSelectedTopicId(newId);
       setTopicSubView('content');
       showToast(`Tópico "${newTopicName.trim()}" criado com sucesso.`);
@@ -208,15 +285,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     setConfirmModal({
       isOpen: true,
       title: `Excluir Tópico "${t.name}"?`,
-      message: `Deseja realmente excluir este tópico? Isso apagará também suas ${countQ} questão(ões) e o conteúdo didático associado.`,
+      message: `Deseja realmente excluir este tópico no Firestore? Isso apagará também suas ${countQ} questão(ões) e o conteúdo didático associado.`,
       confirmLabel: 'Sim, Excluir Tópico',
       isDanger: true,
-      onConfirm: () => {
-        onDeleteTopic(t.id);
+      onConfirm: async () => {
+        const ok = await onDeleteTopic(t.id);
+        setConfirmModal(null);
+        if (ok === false) return;
         if (selectedTopicId === t.id) {
           setSelectedTopicId(null);
         }
-        setConfirmModal(null);
         showToast(`Tópico "${t.name}" excluído com sucesso.`);
       }
     });
@@ -236,7 +314,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     if (!file) return;
 
     const reader = new FileReader();
-    reader.onload = (event) => {
+    reader.onload = async (event) => {
       try {
         const text = event.target?.result as string;
         const parsed = JSON.parse(text) as StudyMaterial;
@@ -246,8 +324,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         parsed.topicId = topic.id;
         parsed.topicName = parsed.topicName || topic.name;
         if (onUpdateStudyMaterial) {
-          onUpdateStudyMaterial(parsed);
-          showToast(`Conteúdo didático do tópico "${topic.name}" importado e salvo com sucesso!`);
+          const ok = await onUpdateStudyMaterial(parsed);
+          if (ok === false) return;
+          showToast(`Conteúdo didático do tópico "${topic.name}" importado e salvo no Firestore!`);
         }
       } catch (err) {
         console.error(err);
@@ -263,13 +342,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     setConfirmModal({
       isOpen: true,
       title: `Restaurar Conteúdo de "${topic.name}"?`,
-      message: `Deseja excluir as customizações salvas no navegador e restaurar a apostila padrão original do sistema?`,
+      message: `Deseja excluir a apostila salva no Firestore para "${topic.name}" e deixá-la em branco?`,
       confirmLabel: 'Sim, Restaurar Original',
       isDanger: false,
-      onConfirm: () => {
-        onResetStudyMaterial(topic.id);
+      onConfirm: async () => {
+        const ok = await onResetStudyMaterial(topic.id);
         setConfirmModal(null);
-        showToast(`Conteúdo do tópico "${topic.name}" restaurado para o padrão original.`);
+        if (ok === false) return;
+        showToast(`Conteúdo do tópico "${topic.name}" restaurado.`);
       }
     });
   };
@@ -279,19 +359,20 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     setConfirmModal({
       isOpen: true,
       title: 'Limpar Conteúdos Didáticos de Todos os Tópicos?',
-      message: 'Esta ação irá limpar todo o conteúdo didático e apostilas de todos os tópicos cadastrados, deixando-os em branco prontos para nova elaboração.',
+      message: 'Esta ação irá limpar todo o conteúdo didático e apostilas salvos no Firestore para todos os tópicos cadastrados, deixando-os em branco.',
       confirmLabel: 'Sim, Limpar Todos',
       isDanger: true,
-      onConfirm: () => {
-        onClearAllStudyMaterials();
+      onConfirm: async () => {
+        const ok = await onClearAllStudyMaterials();
         setConfirmModal(null);
-        showToast('Todos os conteúdos didáticos foram limpos com sucesso.');
+        if (ok === false) return;
+        showToast('Todos os conteúdos didáticos foram limpos no Firestore.');
       }
     });
   };
 
   // --- Handlers de Questões (CRUD e Import/Export) ---
-  const handleQuestionSubmit = (e: React.FormEvent) => {
+  const handleQuestionSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedTopicId) {
       showToast('Selecione um tópico para vincular a questão.');
@@ -312,12 +393,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     };
 
     if (editingQuestion) {
-      onUpdateQuestion(qData);
-      showToast('Questão atualizada com sucesso!');
+      const ok = await onUpdateQuestion(qData);
+      if (ok === false) return;
+      showToast('Questão atualizada no Firestore com sucesso!');
       setEditingQuestion(null);
     } else {
-      onAddQuestion(qData);
-      showToast('Questão cadastrada com sucesso!');
+      const ok = await onAddQuestion(qData);
+      if (ok === false) return;
+      showToast('Questão cadastrada no Firestore com sucesso!');
     }
 
     setQuestionForm({
@@ -350,13 +433,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       }));
 
       if (onImportQuestions) {
-        onImportQuestions(formatted);
+        const ok = await onImportQuestions(formatted);
+        if (ok === false) return;
       } else {
-        formatted.forEach((q) => onAddQuestion(q));
+        for (const q of formatted) {
+          await onAddQuestion(q);
+        }
       }
 
       setAiQuestionFocus('');
-      showToast(`${formatted.length} questão(ões) gerada(s) com sucesso via Gemini!`);
+      showToast(`${formatted.length} questão(ões) gerada(s) e salva(s) no Firestore via Gemini!`);
     } catch (err) {
       if (err instanceof SessionExpiredError) {
         onSessionExpired?.();
@@ -383,13 +469,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     setConfirmModal({
       isOpen: true,
       title: 'Excluir Questão?',
-      message: `Deseja remover permanentemente esta questão: "${q.question.substring(0, 80)}${q.question.length > 80 ? '...' : ''}"?`,
+      message: `Deseja remover permanentemente esta questão do Firestore: "${q.question.substring(0, 80)}${q.question.length > 80 ? '...' : ''}"?`,
       confirmLabel: 'Sim, Excluir Questão',
       isDanger: true,
-      onConfirm: () => {
-        onDeleteQuestion(q.id);
+      onConfirm: async () => {
+        const ok = await onDeleteQuestion(q.id);
         setConfirmModal(null);
-        showToast('Questão excluída com sucesso.');
+        if (ok === false) return;
+        showToast('Questão excluída do Firestore com sucesso.');
       }
     });
   };
@@ -410,7 +497,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     if (!file) return;
 
     const reader = new FileReader();
-    reader.onload = (event) => {
+    reader.onload = async (event) => {
       try {
         const text = event.target?.result as string;
         const parsed = JSON.parse(text);
@@ -423,22 +510,34 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           return;
         }
 
-        let count = 0;
+        const formatted: Question[] = [];
         list.forEach((item: any, idx: number) => {
           if (item.question && Array.isArray(item.options)) {
-            const newQ: Question = {
+            formatted.push({
               id: `q-${Date.now()}-${idx}-${Math.random().toString(36).substr(2, 4)}`,
               topicId: topic.id,
               question: item.question,
               options: item.options.slice(0, 5),
               correctAnswer: typeof item.correctAnswer === 'number' ? item.correctAnswer : 0,
               explanation: item.explanation || ''
-            };
-            onAddQuestion(newQ);
-            count++;
+            });
           }
         });
-        showToast(`${count} questão(ões) importada(s) com sucesso para "${topic.name}"!`);
+
+        if (formatted.length === 0) {
+          showToast('Nenhuma questão válida encontrada no arquivo JSON.');
+          return;
+        }
+
+        if (onImportQuestions) {
+          const ok = await onImportQuestions(formatted);
+          if (ok === false) return;
+        } else {
+          for (const q of formatted) {
+            await onAddQuestion(q);
+          }
+        }
+        showToast(`${formatted.length} questão(ões) importada(s) para "${topic.name}" no Firestore!`);
       } catch (err) {
         console.error(err);
         showToast('Erro ao importar JSON de questões.');
@@ -482,7 +581,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     if (!file) return;
 
     const reader = new FileReader();
-    reader.onload = (event) => {
+    reader.onload = async (event) => {
       try {
         const text = event.target?.result as string;
         const parsed = JSON.parse(text);
@@ -494,29 +593,29 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         const targetDiscipline: Discipline = parsed.discipline;
         const existsDiscipline = disciplines.some(d => d.id === targetDiscipline.id);
         if (existsDiscipline) {
-          onUpdateDiscipline(targetDiscipline);
+          await onUpdateDiscipline(targetDiscipline);
         } else {
-          onAddDiscipline(targetDiscipline);
+          await onAddDiscipline(targetDiscipline);
         }
 
-        parsed.topics.forEach((top: Topic) => {
+        for (const top of parsed.topics as Topic[]) {
           const topExists = topics.some(t => t.id === top.id);
           if (topExists) {
-            onUpdateTopic(top);
+            await onUpdateTopic(top);
           } else {
-            onAddTopic(top);
+            await onAddTopic(top);
           }
-        });
+        }
 
         if (parsed.studyMaterials && onImportStudyMaterials) {
-          onImportStudyMaterials(parsed.studyMaterials);
+          await onImportStudyMaterials(parsed.studyMaterials);
         }
 
         if (Array.isArray(parsed.questions) && onImportQuestions) {
-          onImportQuestions(parsed.questions);
+          await onImportQuestions(parsed.questions);
         }
 
-        showToast(`Backup da disciplina "${targetDiscipline.name}" importado com sucesso!`);
+        showToast(`Backup da disciplina "${targetDiscipline.name}" importado para o Firestore!`);
         setSelectedDisciplineId(targetDiscipline.id);
       } catch (err) {
         console.error(err);
@@ -553,18 +652,22 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             isDarkMode={isDarkMode}
             isCustomized={isCustom}
             onSessionExpired={onSessionExpired}
-            onSave={(updated) => {
+            onSave={async (updated) => {
               if (onUpdateStudyMaterial) {
-                onUpdateStudyMaterial(updated);
+                const ok = await onUpdateStudyMaterial(updated);
+                if (ok === false) return false;
               }
-              showToast('Conteúdo salvo com sucesso no armazenamento local!');
+              showToast('Conteúdo salvo com sucesso no Firestore!');
               setEditingMaterialTopicId(null);
+              return true;
             }}
             onCancel={() => setEditingMaterialTopicId(null)}
-            onResetToDefault={onResetStudyMaterial ? () => {
-              onResetStudyMaterial(topicToEdit.id);
-              showToast('Conteúdo restaurado para o original.');
+            onResetToDefault={onResetStudyMaterial ? async () => {
+              const ok = await onResetStudyMaterial(topicToEdit.id);
+              if (ok === false) return false;
+              showToast('Conteúdo restaurado no Firestore.');
               setEditingMaterialTopicId(null);
+              return true;
             } : undefined}
             renderPreview={(previewMaterial) => (
               <StudyMaterialContent
@@ -753,11 +856,105 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       {/* ========================================================================= */}
       {!selectedDisciplineId && (
         <div className="space-y-8">
+          {/* Painel de Migração localStorage -> Firebase Firestore */}
+          {onMigrateToFirestore && (
+            <div className={`p-5 rounded-3xl border shadow-sm transition-all ${
+              isDarkMode ? 'bg-slate-800/80 border-slate-700' : 'bg-blue-50/60 border-blue-200'
+            }`}>
+              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="w-8 h-8 rounded-xl bg-blue-600 text-white flex items-center justify-center text-sm">
+                      <i className="fas fa-cloud-arrow-up"></i>
+                    </span>
+                    <h3 className={`text-base font-extrabold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                      Sincronização e Migração para Firebase Firestore
+                    </h3>
+                  </div>
+                  <p className={`text-xs leading-relaxed ${isDarkMode ? 'text-slate-300' : 'text-gray-700'}`}>
+                    <strong>Firestore atual:</strong> {disciplines.length} disciplina(s), {topics.length} tópico(s), {questions.length} questão(ões), {Object.keys(customMaterials).length} apostila(s).
+                    {legacySnapshot.totalItems > 0 ? (
+                      <span className="ml-2 font-bold text-amber-600 dark:text-amber-400">
+                        • Detectado no localStorage: {legacySnapshot.disciplines.length} disciplina(s), {legacySnapshot.topics.length} tópico(s), {legacySnapshot.questions.length} questão(ões), {Object.keys(legacySnapshot.apostilas).length} apostila(s).
+                      </span>
+                    ) : (
+                      <span className="ml-2 text-emerald-600 dark:text-emerald-400 font-semibold">
+                        • Nenhum dado pendente no localStorage deste navegador.
+                      </span>
+                    )}
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2 shrink-0">
+                  {legacySnapshot.totalItems > 0 && (
+                    <button
+                      type="button"
+                      disabled={isMigrating || isSaving}
+                      onClick={() => void handleRunMigration(false)}
+                      className="px-4 py-2.5 rounded-xl text-xs font-bold bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white shadow-md transition-all flex items-center gap-2"
+                    >
+                      {isMigrating ? (
+                        <>
+                          <i className="fas fa-spinner fa-spin"></i>
+                          <span>Migrando...</span>
+                        </>
+                      ) : (
+                        <>
+                          <i className="fas fa-database"></i>
+                          <span>Migrar localStorage → Firestore</span>
+                        </>
+                      )}
+                    </button>
+                  )}
+
+                  {disciplines.length === 0 && (
+                    <button
+                      type="button"
+                      disabled={isMigrating || isSaving}
+                      onClick={() => void handleRunMigration(true)}
+                      className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 border ${
+                        isDarkMode
+                          ? 'bg-emerald-900/40 text-emerald-300 border-emerald-700 hover:bg-emerald-900/60'
+                          : 'bg-emerald-600 text-white border-emerald-600 hover:bg-emerald-700'
+                      }`}
+                    >
+                      {isMigrating ? (
+                        <>
+                          <i className="fas fa-spinner fa-spin"></i>
+                          <span>Populando...</span>
+                        </>
+                      ) : (
+                        <>
+                          <i className="fas fa-seedling"></i>
+                          <span>Popular Firestore com Banco Inicial</span>
+                        </>
+                      )}
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {migrationError && (
+                <div className="mt-3 p-3 rounded-xl text-xs font-medium bg-red-100 border-l-4 border-red-500 text-red-800">
+                  <i className="fas fa-exclamation-triangle mr-1.5"></i>
+                  {migrationError}
+                </div>
+              )}
+
+              {migrationResult && (
+                <div className="mt-3 p-3 rounded-xl text-xs font-bold bg-emerald-100 border-l-4 border-emerald-500 text-emerald-900">
+                  <i className="fas fa-check-circle mr-1.5"></i>
+                  Dados gravados no Firestore: {migrationResult.disciplines} disciplina(s), {migrationResult.topics} tópico(s), {migrationResult.questions} questão(ões) e {migrationResult.apostilas} apostila(s).
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Barra de Ação: Nova Disciplina */}
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <div>
               <h3 className={`text-xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                Disciplinas Cadastradas
+                Disciplinas Cadastradas {isLoading ? '(Carregando...)' : ''}
               </h3>
               <p className={`text-xs ${isDarkMode ? 'text-slate-400' : 'text-gray-500'}`}>
                 Selecione uma disciplina para gerenciar seus tópicos, materiais teóricos e banco de questões.

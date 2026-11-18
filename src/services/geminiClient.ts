@@ -1,3 +1,5 @@
+import { getAuthHeaders, clearClientSessionToken } from './authService';
+
 export interface GeneratedQuestionDTO {
   question: string;
   options: string[];
@@ -20,7 +22,10 @@ export const generateQuestionsViaApi = async (params: {
 }): Promise<GeneratedQuestionDTO[]> => {
   const res = await fetch('/api/gemini/generate-questions', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      ...getAuthHeaders(),
+    },
     credentials: 'include',
     body: JSON.stringify(params),
   });
@@ -31,6 +36,7 @@ export const generateQuestionsViaApi = async (params: {
   };
 
   if (res.status === 401) {
+    clearClientSessionToken();
     throw new SessionExpiredError(data.error);
   }
 
@@ -48,7 +54,10 @@ export const generateStudyMaterialViaApi = async (params: {
 }): Promise<string> => {
   const res = await fetch('/api/gemini/generate-material', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      ...getAuthHeaders(),
+    },
     credentials: 'include',
     body: JSON.stringify(params),
   });
@@ -59,6 +68,7 @@ export const generateStudyMaterialViaApi = async (params: {
   };
 
   if (res.status === 401) {
+    clearClientSessionToken();
     throw new SessionExpiredError(data.error);
   }
 

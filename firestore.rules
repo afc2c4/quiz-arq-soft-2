@@ -1,0 +1,28 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Rede de seguranca global: nega qualquer acesso direto via SDK cliente.
+    // Toda leitura e escrita passa exclusivamente pelo servidor Express com Firebase Admin SDK
+    // e validacao de sessao HMAC (verifySessionToken).
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    match /disciplines/{disciplineId} {
+      allow read, write: if false;
+    }
+
+    match /topics/{topicId} {
+      allow read, write: if false;
+    }
+
+    match /questions/{questionId} {
+      allow read, write: if false;
+    }
+
+    match /apostilas/{topicId} {
+      allow read, write: if false;
+    }
+  }
+}

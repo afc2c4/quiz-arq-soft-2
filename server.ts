@@ -9,6 +9,26 @@ import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import { GoogleGenAI, Type } from '@google/genai';
+import type { Discipline, Topic, Question, StudyMaterial } from './types.ts';
+import {
+  FirestoreServiceError,
+  getDisciplines,
+  saveDiscipline,
+  deleteDiscipline,
+  getTopics,
+  saveTopic,
+  deleteTopic,
+  getQuestions,
+  saveQuestions,
+  saveQuestion,
+  deleteQuestion,
+  getApostila,
+  getAllApostilas,
+  saveApostila,
+  deleteApostila,
+  clearAllApostilas,
+  migrateDataToFirestore,
+} from './src/services/firestoreService.ts';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -19,10 +39,12 @@ const SESSION_COOKIE_NAME = 'mestre_digital_session';
 const SESSION_TTL_MS = 8 * 60 * 60 * 1000; // 8 horas
 
 // Segredo de assinatura HMAC para sessoes (lido de .env ou gerado aleatoriamente por execucao)
-const SESSION_SECRET =
-  process.env.SESSION_SECRET && process.env.SESSION_SECRET.trim().length >= 16
-    ? process.env.SESSION_SECRET.trim()
-    : crypto.randomBytes(32).toString('hex');
+const RAW_SESSION_SECRET = process.env.SESSION_SECRET?.trim();
+const SESSION_SECRET = RAW_SESSION_SECRET
+  ? RAW_SESSION_SECRET.length >= 32
+    ? RAW_SESSION_SECRET
+    : crypto.createHash('sha256').update(RAW_SESSION_SECRET, 'utf8').digest('hex')
+  : crypto.randomBytes(32).toString('hex');
 
 interface SessionPayload {
   role: 'admin';
@@ -75,7 +97,9 @@ function constantTimePasswordEquals(input: string, target: string): boolean {
 }
 
 function isRequestSecure(req: Request): boolean {
-  return Boolean(req.secure || req.headers['x-forwarded-proto'] === 'https');
+  const forwardedProto = String(req.headers['x-forwarded-proto'] || '').toLowerCase();
+  const origin = String(req.headers.origin || '').toLowerCase();
+  return Boolean(req.secure || forwardedProto.includes('https') || origin.startsWith('https://'));
 }
 
 function getCookieOptions(req: Request) {
@@ -84,13 +108,29 @@ function getCookieOptions(req: Request) {
     httpOnly: true,
     sameSite: (secure ? 'none' : 'lax') as 'none' | 'lax',
     secure,
+    ...(secure ? { partitioned: true } : {}),
     path: '/',
     maxAge: SESSION_TTL_MS,
   };
 }
 
+function extractSessionToken(req: Request): { token: string | undefined; source: 'cookie' | 'bearer' | 'none' } {
+  const cookieToken = req.cookies?.[SESSION_COOKIE_NAME] as string | undefined;
+  if (cookieToken) {
+    return { token: cookieToken, source: 'cookie' };
+  }
+  const authHeader = req.headers.authorization;
+  if (typeof authHeader === 'string' && authHeader.startsWith('Bearer ')) {
+    const bearerToken = authHeader.slice(7).trim();
+    if (bearerToken) {
+      return { token: bearerToken, source: 'bearer' };
+    }
+  }
+  return { token: undefined, source: 'none' };
+}
+
 function requireAdmin(req: Request, res: Response, next: NextFunction): void {
-  const token = req.cookies?.[SESSION_COOKIE_NAME] as string | undefined;
+  const { token } = extractSessionToken(req);
   const session = verifySessionToken(token);
   if (!session) {
     res.status(401).json({
@@ -99,6 +139,52 @@ function requireAdmin(req: Request, res: Response, next: NextFunction): void {
     return;
   }
   next();
+}
+
+function getParam(req: Request, name: string): string {
+  const value = req.params?.[name];
+  return Array.isArray(value) ? value[0] || '' : value || '';
+}
+
+function mapFirestoreError(err: unknown): { status: number; message: string } {
+  if (err instanceof FirestoreServiceError) {
+    return { status: err.httpStatus, message: err.message };
+  }
+
+  const rawMessage = err instanceof Error ? err.message : String(err);
+  const code = typeof (err as { code?: unknown })?.code === 'number' || typeof (err as { code?: unknown })?.code === 'string'
+    ? String((err as { code?: unknown }).code)
+    : '';
+
+  if (code === '7' || rawMessage.includes('PERMISSION_DENIED')) {
+    return {
+      status: 403,
+      message: 'Permissão negada no Cloud Firestore. Verifique as permissões IAM da conta de serviço no projeto Firebase.',
+    };
+  }
+  if (code === '5' || rawMessage.includes('NOT_FOUND')) {
+    return {
+      status: 404,
+      message: 'Banco de dados ou coleção do Firestore não encontrada. Verifique FIREBASE_PROJECT_ID e FIREBASE_DATABASE_ID no servidor.',
+    };
+  }
+  if (code === '16' || rawMessage.includes('UNAUTHENTICATED') || rawMessage.includes('Could not load the default credentials')) {
+    return {
+      status: 503,
+      message: 'Credenciais do Firebase Admin SDK ausentes ou inválidas no servidor (.env).',
+    };
+  }
+  if (code === '8' || rawMessage.includes('RESOURCE_EXHAUSTED')) {
+    return {
+      status: 429,
+      message: 'Limite temporário de operações no Firestore atingido. Aguarde alguns instantes e tente novamente.',
+    };
+  }
+
+  return {
+    status: 500,
+    message: 'Falha ao acessar o banco de dados Firestore no servidor. Tente novamente.',
+  };
 }
 
 function getGeminiClient(): GoogleGenAI {
@@ -157,7 +243,7 @@ async function startServer() {
     })
   );
 
-  app.use(express.json({ limit: '1mb' }));
+  app.use(express.json({ limit: '5mb' }));
   app.use(cookieParser());
 
   // Limitador de taxa para prevenir forca bruta no login
@@ -184,9 +270,14 @@ async function startServer() {
 
   // --- Rotas de Autenticacao ---
   app.get('/api/auth/session', (req: Request, res: Response) => {
-    const token = req.cookies?.[SESSION_COOKIE_NAME] as string | undefined;
+    const cookieToken = req.cookies?.[SESSION_COOKIE_NAME] as string | undefined;
+    const cookieSession = verifySessionToken(cookieToken);
+    const { token } = extractSessionToken(req);
     const session = verifySessionToken(token);
-    res.json({ authenticated: Boolean(session) });
+    res.json({
+      authenticated: Boolean(session),
+      cookieActive: Boolean(cookieSession),
+    });
   });
 
   app.post('/api/auth/login', authLimiter, (req: Request, res: Response) => {
@@ -218,7 +309,7 @@ async function startServer() {
     });
 
     res.cookie(SESSION_COOKIE_NAME, token, getCookieOptions(req));
-    res.json({ authenticated: true });
+    res.json({ authenticated: true, token });
   });
 
   app.post('/api/auth/logout', (req: Request, res: Response) => {
@@ -227,9 +318,338 @@ async function startServer() {
       httpOnly: opts.httpOnly,
       sameSite: opts.sameSite,
       secure: opts.secure,
+      ...(opts.partitioned ? { partitioned: opts.partitioned } : {}),
       path: opts.path,
     });
     res.json({ authenticated: false });
+  });
+
+  // --- Rotas REST do Banco de Dados (Cloud Firestore via Firebase Admin SDK) ---
+  // Leitura (GET) publica para alunos no Quiz/Apostilas; escrita/migracao protegida por requireAdmin (verifySessionToken).
+
+  app.get('/api/disciplines', async (_req: Request, res: Response) => {
+    try {
+      const disciplines = await getDisciplines();
+      res.json({ disciplines });
+    } catch (err) {
+      console.error('Erro em GET /api/disciplines:', err);
+      const mapped = mapFirestoreError(err);
+      res.status(mapped.status).json({ error: mapped.message });
+    }
+  });
+
+  app.post('/api/disciplines', requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const body = req.body as Partial<Discipline>;
+      const discipline: Discipline = {
+        id: typeof body?.id === 'string' && body.id.trim() ? body.id.trim() : `d-${Date.now()}`,
+        name: typeof body?.name === 'string' ? body.name : '',
+      };
+      const saved = await saveDiscipline(discipline);
+      res.status(201).json({ discipline: saved });
+    } catch (err) {
+      console.error('Erro em POST /api/disciplines:', err);
+      const mapped = mapFirestoreError(err);
+      res.status(mapped.status).json({ error: mapped.message });
+    }
+  });
+
+  app.put('/api/disciplines/:id', requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const id = getParam(req, 'id');
+      const body = req.body as Partial<Discipline>;
+      const saved = await saveDiscipline({
+        id,
+        name: typeof body?.name === 'string' ? body.name : '',
+      });
+      res.json({ discipline: saved });
+    } catch (err) {
+      console.error('Erro em PUT /api/disciplines/:id:', err);
+      const mapped = mapFirestoreError(err);
+      res.status(mapped.status).json({ error: mapped.message });
+    }
+  });
+
+  app.delete('/api/disciplines/:id', requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const id = getParam(req, 'id');
+      await deleteDiscipline(id);
+      res.json({ deleted: true, id });
+    } catch (err) {
+      console.error('Erro em DELETE /api/disciplines/:id:', err);
+      const mapped = mapFirestoreError(err);
+      res.status(mapped.status).json({ error: mapped.message });
+    }
+  });
+
+  app.get('/api/topics', async (req: Request, res: Response) => {
+    try {
+      const disciplineId = typeof req.query.disciplineId === 'string' ? req.query.disciplineId.trim() : undefined;
+      const topics = await getTopics(disciplineId || undefined);
+      res.json({ topics });
+    } catch (err) {
+      console.error('Erro em GET /api/topics:', err);
+      const mapped = mapFirestoreError(err);
+      res.status(mapped.status).json({ error: mapped.message });
+    }
+  });
+
+  app.get('/api/disciplines/:id/topics', async (req: Request, res: Response) => {
+    try {
+      const disciplineId = getParam(req, 'id');
+      const topics = await getTopics(disciplineId);
+      res.json({ topics });
+    } catch (err) {
+      console.error('Erro em GET /api/disciplines/:id/topics:', err);
+      const mapped = mapFirestoreError(err);
+      res.status(mapped.status).json({ error: mapped.message });
+    }
+  });
+
+  app.post('/api/disciplines/:id/topics', requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const disciplineId = getParam(req, 'id');
+      const body = req.body as Partial<Topic>;
+      const topic: Topic = {
+        id: typeof body?.id === 'string' && body.id.trim() ? body.id.trim() : `t-${Date.now()}`,
+        name: typeof body?.name === 'string' ? body.name : '',
+        disciplineId,
+      };
+      const saved = await saveTopic(topic);
+      res.status(201).json({ topic: saved });
+    } catch (err) {
+      console.error('Erro em POST /api/disciplines/:id/topics:', err);
+      const mapped = mapFirestoreError(err);
+      res.status(mapped.status).json({ error: mapped.message });
+    }
+  });
+
+  app.put('/api/topics/:id', requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const id = getParam(req, 'id');
+      const body = req.body as Partial<Topic>;
+      const saved = await saveTopic({
+        id,
+        name: typeof body?.name === 'string' ? body.name : '',
+        disciplineId: typeof body?.disciplineId === 'string' ? body.disciplineId : '',
+      });
+      res.json({ topic: saved });
+    } catch (err) {
+      console.error('Erro em PUT /api/topics/:id:', err);
+      const mapped = mapFirestoreError(err);
+      res.status(mapped.status).json({ error: mapped.message });
+    }
+  });
+
+  app.delete('/api/topics/:id', requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const id = getParam(req, 'id');
+      await deleteTopic(id);
+      res.json({ deleted: true, id });
+    } catch (err) {
+      console.error('Erro em DELETE /api/topics/:id:', err);
+      const mapped = mapFirestoreError(err);
+      res.status(mapped.status).json({ error: mapped.message });
+    }
+  });
+
+  app.get('/api/questions', async (req: Request, res: Response) => {
+    try {
+      const topicId = typeof req.query.topicId === 'string' ? req.query.topicId.trim() : undefined;
+      const questions = await getQuestions(topicId || undefined);
+      res.json({ questions });
+    } catch (err) {
+      console.error('Erro em GET /api/questions:', err);
+      const mapped = mapFirestoreError(err);
+      res.status(mapped.status).json({ error: mapped.message });
+    }
+  });
+
+  app.get('/api/topics/:id/questions', async (req: Request, res: Response) => {
+    try {
+      const topicId = getParam(req, 'id');
+      const questions = await getQuestions(topicId);
+      res.json({ questions });
+    } catch (err) {
+      console.error('Erro em GET /api/topics/:id/questions:', err);
+      const mapped = mapFirestoreError(err);
+      res.status(mapped.status).json({ error: mapped.message });
+    }
+  });
+
+  app.post('/api/topics/:id/questions', requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const topicId = getParam(req, 'id');
+      const rawBody = req.body as Question | Question[] | { questions?: Question[] };
+      let list: Question[];
+      if (Array.isArray(rawBody)) {
+        list = rawBody;
+      } else if (rawBody && typeof rawBody === 'object' && Array.isArray((rawBody as { questions?: Question[] }).questions)) {
+        list = (rawBody as { questions: Question[] }).questions;
+      } else if (rawBody && typeof rawBody === 'object') {
+        list = [rawBody as Question];
+      } else {
+        list = [];
+      }
+
+      const normalized = list.map((q, idx) => ({
+        ...q,
+        id: typeof q?.id === 'string' && q.id.trim() ? q.id.trim() : `q-${Date.now()}-${idx}`,
+        topicId,
+      }));
+
+      const saved = await saveQuestions(topicId, normalized);
+      res.status(201).json({ questions: saved });
+    } catch (err) {
+      console.error('Erro em POST /api/topics/:id/questions:', err);
+      const mapped = mapFirestoreError(err);
+      res.status(mapped.status).json({ error: mapped.message });
+    }
+  });
+
+  app.put('/api/questions/:id', requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const id = getParam(req, 'id');
+      const body = req.body as Partial<Question>;
+      const saved = await saveQuestion({
+        id,
+        topicId: typeof body?.topicId === 'string' ? body.topicId : '',
+        question: typeof body?.question === 'string' ? body.question : '',
+        options: Array.isArray(body?.options) ? body.options : [],
+        correctAnswer: typeof body?.correctAnswer === 'number' ? body.correctAnswer : 0,
+        explanation: typeof body?.explanation === 'string' ? body.explanation : '',
+      });
+      res.json({ question: saved });
+    } catch (err) {
+      console.error('Erro em PUT /api/questions/:id:', err);
+      const mapped = mapFirestoreError(err);
+      res.status(mapped.status).json({ error: mapped.message });
+    }
+  });
+
+  app.delete('/api/questions/:id', requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const id = getParam(req, 'id');
+      await deleteQuestion(id);
+      res.json({ deleted: true, id });
+    } catch (err) {
+      console.error('Erro em DELETE /api/questions/:id:', err);
+      const mapped = mapFirestoreError(err);
+      res.status(mapped.status).json({ error: mapped.message });
+    }
+  });
+
+  app.get('/api/apostilas', async (_req: Request, res: Response) => {
+    try {
+      const apostilas = await getAllApostilas();
+      res.json({ apostilas });
+    } catch (err) {
+      console.error('Erro em GET /api/apostilas:', err);
+      const mapped = mapFirestoreError(err);
+      res.status(mapped.status).json({ error: mapped.message });
+    }
+  });
+
+  app.get('/api/topics/:id/apostila', async (req: Request, res: Response) => {
+    try {
+      const topicId = getParam(req, 'id');
+      const apostila = await getApostila(topicId);
+      res.json({ apostila });
+    } catch (err) {
+      console.error('Erro em GET /api/topics/:id/apostila:', err);
+      const mapped = mapFirestoreError(err);
+      res.status(mapped.status).json({ error: mapped.message });
+    }
+  });
+
+  app.put('/api/topics/:id/apostila', requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const topicId = getParam(req, 'id');
+      const body = req.body as StudyMaterial | { apostila?: StudyMaterial };
+      const material =
+        body && typeof body === 'object' && 'apostila' in body && body.apostila
+          ? body.apostila
+          : (body as StudyMaterial);
+
+      if (!material || typeof material !== 'object') {
+        res.status(400).json({ error: 'Conteúdo da apostila inválido.' });
+        return;
+      }
+
+      const saved = await saveApostila(topicId, { ...material, topicId });
+      res.json({ apostila: saved });
+    } catch (err) {
+      console.error('Erro em PUT /api/topics/:id/apostila:', err);
+      const mapped = mapFirestoreError(err);
+      res.status(mapped.status).json({ error: mapped.message });
+    }
+  });
+
+  app.delete('/api/topics/:id/apostila', requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const topicId = getParam(req, 'id');
+      await deleteApostila(topicId);
+      res.json({ deleted: true, topicId });
+    } catch (err) {
+      console.error('Erro em DELETE /api/topics/:id/apostila:', err);
+      const mapped = mapFirestoreError(err);
+      res.status(mapped.status).json({ error: mapped.message });
+    }
+  });
+
+  app.delete('/api/apostilas', requireAdmin, async (_req: Request, res: Response) => {
+    try {
+      await clearAllApostilas();
+      res.json({ cleared: true });
+    } catch (err) {
+      console.error('Erro em DELETE /api/apostilas:', err);
+      const mapped = mapFirestoreError(err);
+      res.status(mapped.status).json({ error: mapped.message });
+    }
+  });
+
+  app.post('/api/migrate', requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const body = req.body as {
+        disciplines?: Discipline[];
+        topics?: Topic[];
+        questions?: Question[];
+        apostilas?: Record<string, StudyMaterial>;
+        customMaterials?: Record<string, StudyMaterial>;
+        studyMaterials?: Record<string, StudyMaterial>;
+      };
+
+      const apostilasMap = body?.apostilas || body?.customMaterials || body?.studyMaterials || {};
+      const disciplines = Array.isArray(body?.disciplines) ? body.disciplines : [];
+      const topics = Array.isArray(body?.topics) ? body.topics : [];
+      const questions = Array.isArray(body?.questions) ? body.questions : [];
+
+      if (
+        disciplines.length === 0 &&
+        topics.length === 0 &&
+        questions.length === 0 &&
+        Object.keys(apostilasMap).length === 0
+      ) {
+        res.status(400).json({ error: 'Nenhum dado informado no corpo da requisição para migração.' });
+        return;
+      }
+
+      const summary = await migrateDataToFirestore({
+        disciplines,
+        topics,
+        questions,
+        apostilas: apostilasMap,
+      });
+
+      res.json({
+        ok: true,
+        migrated: summary,
+      });
+    } catch (err) {
+      console.error('Erro em POST /api/migrate:', err);
+      const mapped = mapFirestoreError(err);
+      res.status(mapped.status).json({ error: mapped.message });
+    }
   });
 
   // --- Rotas da API Gemini (Exclusivas no Back-end e Protegidas por Sessao) ---

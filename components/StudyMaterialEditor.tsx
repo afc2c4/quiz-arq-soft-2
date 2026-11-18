@@ -11,9 +11,9 @@ interface StudyMaterialEditorProps {
   disciplineName?: string;
   isDarkMode: boolean;
   isCustomized?: boolean;
-  onSave: (updatedMaterial: StudyMaterial) => void;
+  onSave: (updatedMaterial: StudyMaterial) => Promise<boolean | void> | void;
   onCancel: () => void;
-  onResetToDefault?: () => void;
+  onResetToDefault?: () => Promise<boolean | void> | void;
   onSessionExpired?: () => void;
   renderPreview: (previewMaterial: StudyMaterial) => React.ReactNode;
 }
@@ -246,10 +246,14 @@ export function executeDemonstration() {
     reader.readAsText(file);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     const updated = buildCurrentMaterial();
-    onSave(updated);
-    triggerToast('Apostila salva com sucesso no armazenamento local!');
+    const ok = await onSave(updated);
+    if (ok === false) {
+      triggerToast('Falha ao salvar apostila no Firestore.', 'error');
+      return;
+    }
+    triggerToast('Apostila salva com sucesso no Firestore!');
   };
 
   // Funções de manipulação da Introdução

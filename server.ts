@@ -229,7 +229,7 @@ function mapGeminiError(err: unknown): { status: number; message: string } {
   };
 }
 
-async function startServer() {
+export function createApiApp(): express.Express {
   const app = express();
   app.set('trust proxy', 1);
 
@@ -823,6 +823,16 @@ async function startServer() {
     }
   });
 
+  app.use('/api/{*splat}', (_req: Request, res: Response) => {
+    res.status(404).json({ error: 'Rota de API não encontrada.' });
+  });
+
+  return app;
+}
+
+async function startServer() {
+  const app = createApiApp();
+
   // --- Servico do Front-End (Vite em Dev, Arquivos Estaticos em Producao) ---
   if (!IS_PRODUCTION) {
     const { createServer: createViteServer } = await import('vite');
@@ -853,7 +863,17 @@ async function startServer() {
   });
 }
 
-startServer().catch((err) => {
-  console.error('Falha fatal ao iniciar o servidor:', err);
-  process.exit(1);
-});
+const isEntryPoint = (() => {
+  try {
+    return Boolean(process.argv[1]) && fs.realpathSync(process.argv[1]) === fs.realpathSync(__filename);
+  } catch {
+    return false;
+  }
+})();
+
+if (!process.env.VERCEL && isEntryPoint) {
+  startServer().catch((err) => {
+    console.error('Falha fatal ao iniciar o servidor:', err);
+    process.exit(1);
+  });
+}
